@@ -32,6 +32,17 @@ static void *btech_special_object(BtechContext *context, DbRef object,
   return btech_context_find_object(context, object);
 }
 
+static bool btech_special_valid_autopilot_target(BtechContext *context,
+                                                 DbRef target) {
+  return (target == -2 || target == NOTHING ||
+          is_good_obj(context->database, target)) != 0;
+}
+
+static bool btech_special_valid_autopilot_chase_target(BtechContext *context,
+                                                       DbRef target) {
+  return (target == -10 || is_good_obj(context->database, target)) != 0;
+}
+
 /* Restore a turret parent and every independent timing slot. */
 int btech_special_load_turrets(sqlite3 *sqlite, BtechContext *context) {
   sqlite3_stmt *statement;
@@ -167,12 +178,15 @@ int btech_special_load_autopilots(sqlite3 *sqlite, BtechContext *context) {
   DbRef mech_dbref;
   DbRef target;
   int result;
+  int schema_version;
   int step = SQLITE_DONE;
+  int engaged = 0;
 
   statement = nullptr;
-  result = btech_special_prepare_v2(
-               sqlite, "SELECT * FROM btech_autopilots ORDER BY dbref;", -1,
-               &statement, nullptr) == SQLITE_OK
+  result = btech_special_schema_version(sqlite, &schema_version) == 0 &&
+                   btech_special_prepare_v2(
+                       sqlite, "SELECT * FROM btech_autopilots ORDER BY dbref;",
+                       -1, &statement, nullptr) == SQLITE_OK
                ? 0
                : -1;
   while (result == 0 && (step = sqlite3_step(statement)) == SQLITE_ROW) {
@@ -191,15 +205,17 @@ int btech_special_load_autopilots(sqlite3 *sqlite, BtechContext *context) {
         btech_special_column_int(statement, 5, &autopilot->ofsy) < 0 ||
         btech_special_column_uchar(statement, 6, &autopilot->verbose_level) <
             0 ||
-        btech_special_column_dbref(context->database, statement, 7, &target) <
-            0 ||
+        btech_special_column_long(statement, 7, &target) < 0 ||
+        !btech_special_valid_autopilot_target(context, target) ||
         btech_special_column_int(statement, 8, &autopilot->target_score) < 0 ||
         btech_special_column_int(statement, 9, &autopilot->target_threshold) <
             0 ||
         btech_special_column_int(statement, 10,
                                  &autopilot->target_update_tick) < 0 ||
-        btech_special_column_dbref(context->database, statement, 11,
-                                   &autopilot->chase_target) < 0 ||
+        btech_special_column_long(statement, 11, &autopilot->chase_target) <
+            0 ||
+        !btech_special_valid_autopilot_chase_target(context,
+                                                    autopilot->chase_target) ||
         btech_special_column_int(statement, 12,
                                  &autopilot->chasetarg_update_tick) < 0 ||
         btech_special_column_int(statement, 13,
@@ -234,6 +250,9 @@ int btech_special_load_autopilots(sqlite3 *sqlite, BtechContext *context) {
         btech_special_column_int(statement, 33, &autopilot->b_dan) < 0 ||
         btech_special_column_int(statement, 34, &autopilot->w_dan) < 0 ||
         btech_special_column_long(statement, 35, &autopilot->last_upd) < 0 ||
+        (schema_version == 8 &&
+         (btech_special_column_int(statement, 36, &engaged) < 0 ||
+          (engaged != 0 && engaged != 1))) ||
         (mech_dbref != 0 && !btech_context_get_mech(context, mech_dbref)) ||
         (map_dbref != NOTHING && map_dbref != 0 &&
          !btech_context_get_map(context, map_dbref))) {
@@ -243,6 +262,54 @@ int btech_special_load_autopilots(sqlite3 *sqlite, BtechContext *context) {
     autopilot->mymechnum = mech_dbref;
     autopilot->mapindex = map_dbref;
     autopilot->target = target;
+    autopilot->engaged = (schema_version == 8 && engaged == 1) != 0;
+  }
+  if (result == 0 && step != SQLITE_DONE)
+    result = -1;
+  sqlite3_finalize(statement);
+  return result;
+}
+
+/* Infer engagement once for legacy snapshots after their queues are loaded. */
+int btech_special_finalize_autopilot_engagement(sqlite3 *sqlite,
+                                                BtechContext *context) {
+  sqlite3_stmt *statement = nullptr;
+  int schema_version;
+  int result;
+  int step = SQLITE_DONE;
+
+  if (btech_special_schema_version(sqlite, &schema_version) < 0)
+    return -1;
+  if (schema_version == 8)
+    return 0;
+
+  result = btech_special_prepare_v2(
+               sqlite,
+               "SELECT a.dbref, CASE WHEN (a.flags & 7) != 0 OR "
+               "(o.location = a.mech_dbref AND r.autopilot_num = a.dbref "
+               "AND EXISTS (SELECT 1 FROM btech_autopilot_commands c "
+               "WHERE c.autopilot_dbref = a.dbref)) THEN 1 ELSE 0 END "
+               "FROM btech_autopilots a LEFT JOIN objects o ON o.dbref=a.dbref "
+               "LEFT JOIN btech_mech_runtime r ON r.mech_dbref=a.mech_dbref "
+               "ORDER BY a.dbref;",
+               -1, &statement, nullptr) == SQLITE_OK
+               ? 0
+               : -1;
+  while (result == 0 && (step = sqlite3_step(statement)) == SQLITE_ROW) {
+    DbRef object;
+    int engaged;
+    if (btech_special_column_long(statement, 0, &object) < 0 ||
+        btech_special_column_int(statement, 1, &engaged) < 0 ||
+        (engaged != 0 && engaged != 1)) {
+      result = -1;
+      break;
+    }
+    Autopilot *autopilot = btech_special_object(context, object, GTYPE_AUTO);
+    if (!autopilot) {
+      result = -1;
+      break;
+    }
+    autopilot->engaged = engaged == 1;
   }
   if (result == 0 && step != SQLITE_DONE)
     result = -1;
@@ -396,6 +463,7 @@ int btech_special_load_autopilot_commands(sqlite3 *sqlite,
       expected_position = 0;
     }
     if (position != expected_position ||
+        expected_position >= AUTOPILOT_MEMORY ||
         btech_special_load_autopilot_command_args(
             &(AutopilotCommandRestoreRequest){
                 .sqlite = sqlite,

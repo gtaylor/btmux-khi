@@ -310,7 +310,7 @@ void parse_contract_comment(Model &model, std::string_view raw,
   const std::regex definition(
       R"(^@par LuaLS definition (mux|btech) (alias|type|catalog|namespace|callable|binding) ([A-Za-z_][A-Za-z0-9_.:-]*)$)");
   const std::regex ignore(
-      R"(^@par LuaLS ignore (mux) ([A-Za-z_][A-Za-z0-9_]*) -- (.+)$)");
+      R"(^@par LuaLS ignore (mux|btech) ([A-Za-z_][A-Za-z0-9_]*) -- (.+)$)");
 
   for (size_t index = 0; index < lines.size(); index++) {
     if (!starts_with(lines[index], "@par LuaLS"))
@@ -522,6 +522,8 @@ void validate_model(Model &model) {
   }
   std::map<std::pair<std::string, std::string>, const Ignore *> mux_ignore;
   for (const Ignore &ignore : model.ignores) {
+    if (ignore.module != "mux")
+      continue;
     const auto key = std::pair(ignore.owner, ignore.leaf);
     if (!mux_ignore.emplace(key, &ignore).second)
       model.diagnose(ignore.location, "duplicate MUX handler/leaf ignore");
@@ -550,6 +552,32 @@ void validate_model(Model &model) {
     if (!mux_registrations.contains(key))
       model.diagnose(ignore->location,
                      "MUX ignore is not backed by a recognized registration");
+  }
+
+  std::map<std::pair<std::string, std::string>, const Ignore *> btech_ignore;
+  for (const Ignore &ignore : model.ignores) {
+    if (ignore.module != "btech")
+      continue;
+    const auto key = std::pair(ignore.owner, ignore.leaf);
+    if (!btech_ignore.emplace(key, &ignore).second)
+      model.diagnose(ignore.location, "duplicate BTech handler/leaf ignore");
+  }
+  std::set<std::pair<std::string, std::string>> btech_registrations;
+  for (const Registration &registration : model.registrations) {
+    if (registration.module != "btech")
+      continue;
+    const auto key = std::pair(registration.handler, registration.leaf);
+    btech_registrations.insert(key);
+    if (!btech_ignore.contains(key))
+      model.diagnose(registration.location,
+                     "registered BTech handler/leaf lacks a documented "
+                     "ignore: " +
+                         registration.leaf);
+  }
+  for (const auto &[key, ignore] : btech_ignore) {
+    if (!btech_registrations.contains(key))
+      model.diagnose(ignore->location,
+                     "BTech ignore is not backed by a recognized registration");
   }
 
   std::map<std::string, const BtechInstallation *> btech_installations;

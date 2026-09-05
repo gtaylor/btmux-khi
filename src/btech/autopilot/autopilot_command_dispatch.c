@@ -26,9 +26,15 @@
 #include "registry_api.h"
 #include "section_types.h"
 
+bool autopilot_command_dispatch_enabled(const Autopilot *autopilot) {
+  return (autopilot != nullptr && autopilot->engaged) != 0;
+}
+
 void auto_com_event(MuxEvent *muxevent) {
 
   Autopilot *autopilot = (Autopilot *)muxevent->data;
+  if (!autopilot_command_dispatch_enabled(autopilot))
+    return;
   Mech *mech = autopilot->mymech;
   /* No mech and/or no AI */
   if (!btech_context_is_mech(mech_context(mech), mech_dbref(mech)) ||

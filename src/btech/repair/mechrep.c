@@ -27,14 +27,19 @@
 #include "mech_status_api.h"
 #include "mech_utils_api.h"
 #include "mechrep_api.h"
+#include "mechrep_slot_internal.h"
 #include "mux/support/stringutil.h"
 #include "section_types.h"
 #include "special_object.h"
 #include "template_api.h"
 
 void btech_admin_criticals_reset(Mech *mech) {
-  for (int section = 0; section < NUM_SECTIONS; section++)
+  for (int section = 0; section < NUM_SECTIONS; section++) {
     fill_default_criticals(mech, section);
+    for (int slot = 0; slot < NUM_CRITICALS; slot++)
+      mechrep_slot_auxiliary_metadata_reset(mech, section, slot);
+  }
+  mechrep_equipment_metadata_reconcile(mech);
 }
 
 void btech_admin_radio_quality_set(Mech *mech, int quality) {

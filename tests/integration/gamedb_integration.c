@@ -588,10 +588,16 @@ static int check_snapshot(const char *path) {
            "'btech_mech_unit_aux', "
            "'btech_mech_stagger_damage');",
            33) == 0;
-  ok = ok && query_int(sqlite,
-                       "SELECT schema_version FROM btech_persistence_metadata "
-                       "WHERE id = 1;",
-                       7) == 0;
+  ok = ok &&
+       query_int(sqlite,
+                 "SELECT schema_version FROM btech_persistence_metadata "
+                 "WHERE id = 1;",
+                 8) == 0 &&
+       query_int(sqlite,
+                 "SELECT count(*) FROM pragma_table_info("
+                 "'btech_autopilots') WHERE name = 'engaged' "
+                 "AND type = 'INTEGER' AND [notnull] = 1;",
+                 1) == 0;
   ok =
       ok && query_int(sqlite,
                       "SELECT count(*) FROM sqlite_master WHERE type = 'table' "
@@ -1269,6 +1275,10 @@ static int seed_btech_nondefault_state(const char *path) {
                   SQLITE_OK &&
               sqlite3_exec(
                   sqlite,
+                  "PRAGMA ignore_check_constraints=ON;"
+                  "UPDATE btech_persistence_metadata SET schema_version=7 "
+                  "WHERE id=1;"
+                  "UPDATE btech_autopilots SET engaged=0;"
                   "UPDATE btech_maps SET temperature = 17, regen_factor = 7, "
                   "width = 30, height = 30 "
                   "WHERE dbref = 2;"
@@ -1556,14 +1566,22 @@ static int check_btech_queued_command_state(const char *path) {
   if (sqlite3_open_v2(path, &sqlite, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK)
     return -1;
   result =
-      check_btech_value(
-          sqlite, "reload autopilot speed",
-          "SELECT speed_percent FROM btech_autopilots WHERE dbref = 5;",
-          75) == 0 &&
+      check_btech_value(sqlite, "reload schema version",
+                        "SELECT schema_version FROM "
+                        "btech_persistence_metadata WHERE id=1;",
+                        8) == 0 &&
+              check_btech_value(
+                  sqlite, "reload autopilot speed",
+                  "SELECT speed_percent FROM btech_autopilots WHERE dbref = 5;",
+                  75) == 0 &&
               check_btech_value(sqlite, "reload autopilot command count",
                                 "SELECT count(*) FROM btech_autopilot_commands "
                                 "WHERE autopilot_dbref = 5;",
                                 2) == 0 &&
+              check_btech_value(
+                  sqlite, "legacy autopilot engagement inference",
+                  "SELECT engaged FROM btech_autopilots WHERE dbref = 5;",
+                  1) == 0 &&
               check_btech_value(
                   sqlite, "reload autopilot command enum",
                   "SELECT command_enum FROM btech_autopilot_commands WHERE "
@@ -1578,6 +1596,78 @@ static int check_btech_queued_command_state(const char *path) {
           ? 0
           : -1;
   sqlite3_close(sqlite);
+  return result;
+}
+
+static int set_btech_autopilot_engaged(const char *path, int engaged) {
+  sqlite3 *sqlite = NULL;
+  sqlite3_stmt *statement = NULL;
+  int result =
+      sqlite3_open_v2(path, &sqlite, SQLITE_OPEN_READWRITE, NULL) ==
+                  SQLITE_OK &&
+              sqlite3_prepare_v2(
+                  sqlite,
+                  "UPDATE btech_autopilots SET engaged=? WHERE dbref=5;", -1,
+                  &statement, NULL) == SQLITE_OK &&
+              sqlite3_bind_int(statement, 1, engaged) == SQLITE_OK &&
+              sqlite3_step(statement) == SQLITE_DONE &&
+              sqlite3_changes(sqlite) == 1
+          ? 0
+          : -1;
+  sqlite3_finalize(statement);
+  if (sqlite != NULL)
+    sqlite3_close(sqlite);
+  return result;
+}
+
+static int check_btech_autopilot_engaged(const char *path, int engaged) {
+  sqlite3 *sqlite = NULL;
+  if (sqlite3_open_v2(path, &sqlite, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK)
+    return -1;
+  int result = query_int(
+      sqlite, "SELECT engaged FROM btech_autopilots WHERE dbref=5;", engaged);
+  sqlite3_close(sqlite);
+  return result;
+}
+
+static int seed_invalid_btech_autopilot_engaged(const char *path) {
+  sqlite3 *sqlite = NULL;
+  int result = sqlite3_open_v2(path, &sqlite, SQLITE_OPEN_READWRITE, NULL) ==
+                           SQLITE_OK &&
+                       sqlite3_exec(sqlite,
+                                    "PRAGMA ignore_check_constraints=ON;"
+                                    "UPDATE btech_autopilots SET engaged=2 "
+                                    "WHERE dbref=5;",
+                                    NULL, NULL, NULL) == SQLITE_OK &&
+                       sqlite3_changes(sqlite) == 1
+                   ? 0
+                   : -1;
+  if (sqlite != NULL)
+    sqlite3_close(sqlite);
+  return result;
+}
+
+/* A known command with an impossible durable arity must fail restoration. */
+static int set_btech_autopilot_command_arg_count(const char *path,
+                                                 int argument_count) {
+  sqlite3 *sqlite = NULL;
+  sqlite3_stmt *statement = NULL;
+  int result =
+      sqlite3_open_v2(path, &sqlite, SQLITE_OPEN_READWRITE, NULL) ==
+                  SQLITE_OK &&
+              sqlite3_prepare_v2(
+                  sqlite,
+                  "UPDATE btech_autopilot_commands SET arg_count=? "
+                  "WHERE autopilot_dbref=5 AND position=0;",
+                  -1, &statement, NULL) == SQLITE_OK &&
+              sqlite3_bind_int(statement, 1, argument_count) == SQLITE_OK &&
+              sqlite3_step(statement) == SQLITE_DONE &&
+              sqlite3_changes(sqlite) == 1
+          ? 0
+          : -1;
+  sqlite3_finalize(statement);
+  if (sqlite != NULL)
+    sqlite3_close(sqlite);
   return result;
 }
 
@@ -1824,7 +1914,12 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   if (strcmp(suite, "persistence") == 0) {
-    if (run_server(server, config, 0, &status) < 0 || !WIFEXITED(status) ||
+    if (check_btech_autopilot_engaged(database, 1) < 0 ||
+        set_btech_autopilot_engaged(database, 0) < 0 ||
+        run_server(server, config, 0, &status) < 0 || !WIFEXITED(status) ||
+        WEXITSTATUS(status) == 2 ||
+        check_btech_autopilot_engaged(database, 0) < 0 ||
+        run_server(server, config, 0, &status) < 0 || !WIFEXITED(status) ||
         WEXITSTATUS(status) == 2 || check_snapshot(database) < 0 ||
         check_zero_economy(database) < 0 ||
         check_commac_snapshot(database) < 0 ||
@@ -1834,7 +1929,14 @@ int main(int argc, char *argv[]) {
         seed_invalid_btech_configuration(database) < 0 ||
         run_server(server, config, 0, &status) < 0 || !WIFEXITED(status) ||
         WEXITSTATUS(status) != 0 ||
-        check_invalid_btech_configuration_removed(database) < 0)
+        check_invalid_btech_configuration_removed(database) < 0 ||
+        set_btech_autopilot_command_arg_count(database, 3) < 0 ||
+        run_server(server, config, 0, &status) < 0 || !WIFEXITED(status) ||
+        WEXITSTATUS(status) == 0 ||
+        set_btech_autopilot_command_arg_count(database, 2) < 0 ||
+        seed_invalid_btech_autopilot_engaged(database) < 0 ||
+        run_server(server, config, 0, &status) < 0 || !WIFEXITED(status) ||
+        WEXITSTATUS(status) == 0)
       return 1;
     return result;
   }

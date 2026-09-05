@@ -20,7 +20,7 @@ const char BTECH_SPECIAL_SCHEMA_SQL[] =
     "CREATE TABLE btech_persistence_metadata ("
     " id INTEGER PRIMARY KEY CHECK (id = 1),"
     " schema_name TEXT NOT NULL CHECK (schema_name = 'stompymux-btech'),"
-    " schema_version INTEGER NOT NULL CHECK (schema_version = 7)"
+    " schema_version INTEGER NOT NULL CHECK (schema_version = 8)"
     ");"
     "CREATE TABLE btech_special_registrations ("
     " dbref INTEGER PRIMARY KEY, special_type TEXT NOT NULL"
@@ -140,7 +140,8 @@ const char BTECH_SPECIAL_SCHEMA_SQL[] =
     " auto_nervous INTEGER NOT NULL, b_msc INTEGER NOT NULL, w_msc INTEGER NOT "
     "NULL, b_bsc INTEGER NOT NULL,"
     " w_bsc INTEGER NOT NULL, b_dan INTEGER NOT NULL, w_dan INTEGER NOT NULL, "
-    "last_upd INTEGER NOT NULL"
+    "last_upd INTEGER NOT NULL, engaged INTEGER NOT NULL CHECK (engaged IN "
+    "(0, 1))"
     ");"
     "CREATE TABLE btech_autopilot_commands ("
     " autopilot_dbref INTEGER NOT NULL, position INTEGER NOT NULL, "
@@ -574,13 +575,31 @@ int btech_special_validate_metadata(sqlite3 *sqlite) {
           sqlite,
           "SELECT count(*) FROM btech_persistence_metadata "
           "WHERE id = 1 AND schema_name = 'stompymux-btech' "
-          "AND schema_version IN (6, 7);",
+          "AND schema_version IN (6, 7, 8);",
           -1, &statement, nullptr) == SQLITE_OK &&
               sqlite3_step(statement) == SQLITE_ROW &&
               btech_special_column_int(statement, 0, &matching_rows) == 0 &&
               matching_rows == 1 && sqlite3_step(statement) == SQLITE_DONE
           ? 0
           : -1;
+  sqlite3_finalize(statement);
+  return result;
+}
+
+int btech_special_schema_version(sqlite3 *sqlite, int *version) {
+  sqlite3_stmt *statement = nullptr;
+  int result = btech_special_prepare_v2(
+                   sqlite,
+                   "SELECT schema_version FROM btech_persistence_metadata "
+                   "WHERE id=1 AND schema_name='stompymux-btech';",
+                   -1, &statement, nullptr) == SQLITE_OK
+                   ? 0
+                   : -1;
+  if (result == 0 && (sqlite3_step(statement) != SQLITE_ROW ||
+                      btech_special_column_int(statement, 0, version) < 0 ||
+                      (*version != 6 && *version != 7 && *version != 8) ||
+                      sqlite3_step(statement) != SQLITE_DONE))
+    result = -1;
   sqlite3_finalize(statement);
   return result;
 }

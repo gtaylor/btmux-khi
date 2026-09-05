@@ -1,6 +1,7 @@
 /* Shared typed operations used by BattleTech administration front ends. */
 
 #include "btech/repair/mechrep_api.h"
+#include "mechrep_slot_internal.h"
 
 #include <stddef.h>
 
@@ -14,6 +15,11 @@
 #include "btech/unit/template_api.h"
 #include "btech/unit/weapon_catalogue_api.h"
 #include "mux/support/checked_storage.h"
+
+bool btech_admin_section_has_rear_armor(const Mech *mech, int section) {
+  return (bool)(mech_class(mech) == CLASS_MECH &&
+                (section == CTORSO || section == LTORSO || section == RTORSO));
+}
 
 void btech_admin_armor_set(Mech *mech, int section, bool has_armor, int armor,
                            bool has_internal, int internal, bool has_rear,
@@ -32,28 +38,49 @@ void btech_admin_armor_set(Mech *mech, int section, bool has_armor, int armor,
   }
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): Slot count and section
+// are distinct documented API dimensions.
 void btech_admin_weapon_install(Mech *mech, int weapon, const int *slots,
                                 size_t slot_count, int section,
                                 int fire_modes) {
+  int replaced_parts[NUM_CRITICALS] = {[0] = EMPTY};
+
   for (size_t index = 0; index < slot_count; index++) {
+    const int SLOT = *(const int *)checked_storage_at_const(
+        slots, slot_count, sizeof(*slots), index);
+    *(int *)checked_storage_at(replaced_parts, NUM_CRITICALS,
+                               sizeof(*replaced_parts), index) =
+        mech_critical_part_type(mech, section, SLOT);
+  }
+  for (size_t index = 0; index < slot_count; index++) {
+    const int SLOT = *(const int *)checked_storage_at_const(
+        slots, slot_count, sizeof(*slots), index);
     mech_critical_configure(&(CriticalSlotConfiguration){
         .mech = mech,
-        .slot = {.section = section,
-                 .critical = *(const int *)checked_storage_at_const(
-                     slots, slot_count, sizeof(*slots), index)},
+        .slot = {.section = section, .critical = SLOT},
         .part_type = weapon_equipment_index(weapon),
         .fire_mode = fire_modes,
     });
+    mechrep_slot_auxiliary_metadata_reset(mech, section, SLOT);
+  }
+  for (size_t index = 0; index < slot_count; index++) {
+    mechrep_replaced_part_metadata_reconcile(
+        mech,
+        *(const int *)checked_storage_at_const(replaced_parts, NUM_CRITICALS,
+                                               sizeof(*replaced_parts), index),
+        section);
   }
   if (weapon_catalogue_has_special(weapon, AMS))
     mech_technology_flags_add(mech, weapon_catalogue_has_special(weapon, CLAT)
                                         ? CL_ANTI_MISSILE_TECH
                                         : IS_ANTI_MISSILE_TECH);
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 void btech_admin_ammunition_configure(Mech *mech, int weapon, int section,
                                       int slot, int fire_modes,
                                       int ammunition_modes) {
+  const int OLD_PART_TYPE = mech_critical_part_type(mech, section, slot);
   mech_critical_configure(&(CriticalSlotConfiguration){
       .mech = mech,
       .slot = {.section = section, .critical = slot},
@@ -61,6 +88,8 @@ void btech_admin_ammunition_configure(Mech *mech, int weapon, int section,
       .fire_mode = fire_modes,
       .ammo_mode = ammunition_modes,
   });
+  mechrep_slot_auxiliary_metadata_reset(mech, section, slot);
+  mechrep_replaced_part_metadata_reconcile(mech, OLD_PART_TYPE, section);
   mech_critical_data_set(mech, section, slot, full_ammo(mech, section, slot));
 }
 
@@ -110,55 +139,16 @@ void btech_admin_repair(Mech *mech, BtechAdminRepairKind kind, int section,
 
 void btech_admin_special_install(Mech *mech, int special, int section, int slot,
                                  int data) {
+  const int OLD_PART_TYPE = mech_critical_part_type(mech, section, slot);
   mech_critical_configure(&(CriticalSlotConfiguration){
       .mech = mech,
       .slot = {.section = section, .critical = slot},
       .part_type = special < 0 ? EMPTY : special_equipment_index(special),
       .data = data,
   });
-  mech_critical_damage_flags_set(mech, section, slot, 0);
-  mech_critical_temporary_failure_set(&(CriticalSlotFailureSet){
-      .mech = mech,
-      .slot = {.section = section, .critical = slot},
-      .failure = 0,
-  });
-  mech_critical_brand_set(&(CriticalSlotBrandSet){
-      .mech = mech,
-      .slot = {.section = section, .critical = slot},
-      .brand = 0,
-  });
-  mech_critical_desired_ammo_section_set(mech, section, slot, -1);
-  if (special == CASE) {
-    mech_section_configuration_add(
-        mech, mech_class(mech) == CLASS_VEH_GROUND ? BSIDE : section,
-        CASE_TECH);
-  } else if (special == TRIPLE_STRENGTH_MYOMER) {
-    mech_technology_flags_add(mech, TRIPLE_MYOMER_TECH);
-  } else if (special == MASC) {
-    mech_technology_flags_add(mech, MASC_TECH);
-  } else if (special == C3_MASTER) {
-    mech_technology_flags_add(mech, C3_MASTER_TECH);
-  } else if (special == C3_SLAVE) {
-    mech_technology_flags_add(mech, C3_SLAVE_TECH);
-  } else if (special == ARTEMIS_IV) {
-    mech_technology_flags_add(mech, ARTEMIS_IV_TECH);
-  } else if (special == ECM) {
-    mech_technology_flags_add(mech, ECM_TECH);
-  } else if (special == ANGELECM) {
-    mech_technology_flags_secondary_add(mech, ANGEL_ECM_TECH);
-  } else if (special == BEAGLE_PROBE) {
-    mech_technology_flags_add(mech, BEAGLE_PROBE_TECH);
-  } else if (special == LIGHT_BAP) {
-    mech_technology_flags_add(mech, LIGHT_BAP_TECH);
-  } else if (special == TAG) {
-    mech_technology_flags_secondary_add(mech, TAG_TECH);
-  } else if (special == C3I) {
-    mech_technology_flags_secondary_add(mech, C3I_TECH);
-  } else if (special == BLOODHOUND_PROBE) {
-    mech_technology_flags_secondary_add(mech, BLOODHOUND_PROBE_TECH);
-  } else if (special == TARGETING_COMPUTER) {
-    mech_technology_flags_secondary_add(mech, TCOMP_TECH);
-  }
+  mechrep_slot_auxiliary_metadata_reset(mech, section, slot);
+  mechrep_replaced_part_metadata_reconcile(mech, OLD_PART_TYPE, section);
+  mechrep_special_metadata_add(mech, special, section);
   if (special == SPLIT_CRIT_LEFT || special == SPLIT_CRIT_RIGHT) {
     mech_critical_data_set(mech, section, slot,
                            mech_critical_data(mech, section, slot) - 1);
@@ -169,10 +159,10 @@ static void remove_critical_type(Mech *mech, int part_type) {
   for (int section = 0; section < NUM_SECTIONS; section++)
     for (int critical = 0; critical < NUM_CRITICALS; critical++)
       if (mech_critical_part_type(mech, section, critical) == part_type)
-        mech_critical_part_type_set(mech, section, critical, EMPTY);
+        mechrep_slot_empty(mech, section, critical);
 }
 
-static void remove_case_technology(Mech *mech) {
+void btech_admin_case_remove(Mech *mech) {
   remove_critical_type(mech, special_equipment_index(CASE));
   for (int section = 0; section < NUM_SECTIONS; section++)
     mech_section_configuration_remove(mech, section, CASE_TECH);
@@ -184,10 +174,19 @@ void btech_admin_technology_set(Mech *mech, BtechAdminTechnologyGroup group,
                                 int technology, bool enabled) {
   switch (group) {
   case BTECH_ADMIN_TECHNOLOGY_PRIMARY:
-    if (enabled)
+    if (enabled) {
       mech_technology_flags_add(mech, technology);
-    else
+    } else {
+      const int CURRENT_TECHNOLOGY = mech_technology_flags(mech);
+      if ((technology & TRIPLE_MYOMER_TECH) != 0 &&
+          (CURRENT_TECHNOLOGY & TRIPLE_MYOMER_TECH) != 0)
+        remove_critical_type(mech,
+                             special_equipment_index(TRIPLE_STRENGTH_MYOMER));
+      if ((technology & MASC_TECH) != 0 &&
+          (CURRENT_TECHNOLOGY & MASC_TECH) != 0)
+        remove_critical_type(mech, special_equipment_index(MASC));
       mech_technology_flags_remove(mech, technology);
+    }
     break;
   case BTECH_ADMIN_TECHNOLOGY_SECONDARY:
     if (enabled)
@@ -210,7 +209,7 @@ void btech_admin_technologies_clear(Mech *mech,
                                     BtechAdminTechnologyGroup group) {
   switch (group) {
   case BTECH_ADMIN_TECHNOLOGY_PRIMARY:
-    remove_case_technology(mech);
+    btech_admin_case_remove(mech);
     remove_critical_type(mech, special_equipment_index(TRIPLE_STRENGTH_MYOMER));
     remove_critical_type(mech, special_equipment_index(MASC));
     mech_technology_flags_set(mech, 0);

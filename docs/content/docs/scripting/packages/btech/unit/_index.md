@@ -9,6 +9,18 @@ sidebar_root_for: self
 
 `btech.unit` provides live-unit state, combat queries, and mutations.
 
+## Constants
+
+| Namespace | Description |
+| --- | --- |
+| [`types`](types/) | Unit classes. |
+| [`movement_types`](movement-types/) | Movement classes. |
+| [`sections`](sections/) | Unit-layout sections. |
+| [`technology`](technology/) | Technology codes. |
+| [`technology_groups`](technology-groups/) | Technology-clear groups. |
+| [`fire_modes`](fire-modes/) | Weapon fire modes. |
+| [`ammunition_modes`](ammunition-modes/) | Ammunition modes. |
+
 ## Functions
 
 | Function | Description |

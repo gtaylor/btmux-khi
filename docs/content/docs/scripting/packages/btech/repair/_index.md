@@ -9,6 +9,9 @@ sidebar_root_for: self
 
 `btech.repair` provides repair state and technician availability.
 
+[`btech.repair.operations`](operations/) provides the immutable typed constants
+used by repair records and immediate repair requests.
+
 ## Functions
 
 | Function | Description |

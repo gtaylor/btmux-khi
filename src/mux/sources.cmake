@@ -66,8 +66,10 @@ target_sources(stompymux PRIVATE
   ${MUX_MODULE_DIR}/lua/lua_commands.c
   ${MUX_MODULE_DIR}/lua/lua_flow.c
   ${MUX_MODULE_DIR}/lua/packages/btech/btech_package.c
+  ${MUX_MODULE_DIR}/lua/packages/btech/btech_constants.c
   ${MUX_MODULE_DIR}/lua/packages/btech/btech_contracts.c
   ${MUX_MODULE_DIR}/lua/packages/btech/btech_mode_records.c
+  ${MUX_MODULE_DIR}/lua/packages/btech/autopilot/btech_autopilot_bindings.c
   ${MUX_MODULE_DIR}/lua/packages/btech/character/btech_character_bindings.c
   ${MUX_MODULE_DIR}/lua/packages/btech/map/btech_map_bindings.c
   ${MUX_MODULE_DIR}/lua/packages/btech/map/btech_map_los_bindings.c
@@ -76,6 +78,7 @@ target_sources(stompymux PRIVATE
   ${MUX_MODULE_DIR}/lua/packages/btech/repair/btech_repair_bindings.c
   ${MUX_MODULE_DIR}/lua/packages/btech/system/btech_system_bindings.c
   ${MUX_MODULE_DIR}/lua/packages/btech/template/btech_template_bindings.c
+  ${MUX_MODULE_DIR}/lua/packages/btech/unit/btech_unit_constants.c
   ${MUX_MODULE_DIR}/lua/packages/btech/unit/btech_unit_bindings.c
   ${MUX_MODULE_DIR}/lua/packages/btech/unit/btech_unit_admin_bindings.c
   ${MUX_MODULE_DIR}/lua/packages/btech/unit/btech_unit_operations.c

@@ -22,8 +22,9 @@ btech.template.show_critical_status( reference, player, section )
 `DbRef|Object player`
 : The report recipient.
 
-`string section`
-: A class-specific section name or abbreviation.
+`BtechSection section`
+: A typed constant from [`btech.unit.sections`](../../unit/sections/) that is
+  valid for the template.
 
 ### Returns
 

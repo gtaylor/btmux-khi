@@ -17,9 +17,13 @@ cp "$fixtures/valid_mux_extension.c" \
   "$workspace/src/mux/lua/packages/mux/"
 cp "$fixtures/valid_btech.c" "$workspace/src/btech/"
 cp "$fixtures/selector_irrelevant.c" "$workspace/src/btech/"
+mkdir -p "$workspace/src/mux/lua/packages/btech"
+cp "$fixtures/btech_constants.c" \
+  "$workspace/src/mux/lua/packages/btech/btech_constants.c"
 
 clang-format-22 --dry-run --Werror "$fixtures/valid_mux.c" \
   "$fixtures/valid_mux_extension.c" "$fixtures/valid_btech.c" \
+  "$fixtures/btech_constants.c" "$fixtures/btech_unexpected_registration.c" \
   "$fixtures/shared_contract.h" \
   "$fixtures/include/selector_macro_registration.h" \
   "$fixtures/selector_catalog_only.c" \
@@ -44,20 +48,52 @@ compiler_flags=(
 mux_source="$workspace/src/mux/lua/packages/mux/valid_mux.c"
 extension_source="$workspace/src/mux/lua/packages/mux/valid_mux_extension.c"
 btech_source="$workspace/src/btech/valid_btech.c"
+btech_constants_source="$workspace/src/mux/lua/packages/btech/btech_constants.c"
 irrelevant_source="$workspace/src/btech/selector_irrelevant.c"
 
 (
   umask 077
   "$generator" --write --output-dir output-a "${common[@]}" \
     "$mux_source" "$extension_source" "$btech_source" \
-    "$irrelevant_source" \
+    "$btech_constants_source" "$irrelevant_source" \
     "${compiler_flags[@]}"
 ) >"$workspace/write.log" 2>&1
-test ! -s "$workspace/write.log"
+if [[ -s "$workspace/write.log" ]]; then
+  cat "$workspace/write.log" >&2
+  exit 1
+fi
 test "$(stat -c '%a' "$workspace/output-a/mux.d.lua")" = 644
 test "$(stat -c '%a' "$workspace/output-a/btech.d.lua")" = 644
 cmp "$fixtures/expected/mux.d.lua.expected" "$workspace/output-a/mux.d.lua"
 cmp "$fixtures/expected/btech.d.lua.expected" "$workspace/output-a/btech.d.lua"
+
+# Direct internal BTech registrations require a declaration-level ignore;
+# recognizing this one implementation file must not silently suppress a new
+# callback.
+cp "$btech_constants_source" "$workspace/btech-constants-valid.c"
+sed -i '/ignore btech __eq/d' "$btech_constants_source"
+if "$generator" --check --output-dir output-a "${common[@]}" \
+  "$btech_constants_source" "${compiler_flags[@]}" \
+  >"$workspace/btech-missing-ignore.log" 2>&1; then
+  echo "BTech registration without an ignore unexpectedly passed" >&2
+  exit 1
+fi
+grep -F 'registered BTech handler/leaf lacks a documented ignore: __eq' \
+  "$workspace/btech-missing-ignore.log"
+mv "$workspace/btech-constants-valid.c" "$btech_constants_source"
+
+cp "$btech_constants_source" "$workspace/btech-constants-valid.c"
+sed -i 's/ignore btech __eq/ignore btech orphan/' \
+  "$btech_constants_source"
+if "$generator" --check --output-dir output-a "${common[@]}" \
+  "$btech_constants_source" "${compiler_flags[@]}" \
+  >"$workspace/btech-orphan-ignore.log" 2>&1; then
+  echo "BTech ignore without a registration unexpectedly passed" >&2
+  exit 1
+fi
+grep -F 'BTech ignore is not backed by a recognized registration' \
+  "$workspace/btech-orphan-ignore.log"
+mv "$workspace/btech-constants-valid.c" "$btech_constants_source"
 
 # Header contracts must be reached through at least one selected translation
 # unit. The shared contract above is exercised by the successful generation;
@@ -81,6 +117,7 @@ macro_source="$workspace/src/mux/lua/packages/mux/selector_macro_registration.c"
 cp "$fixtures/selector_macro_registration.c" "$macro_source"
 "$generator" --write --output-dir output-macro "${common[@]}" \
   "$mux_source" "$extension_source" "$btech_source" "$macro_source" \
+  "$btech_constants_source" \
   "${compiler_flags[@]}"
 grep -F 'function mux.macro_fixture() end' \
   "$workspace/output-macro/mux.d.lua"
@@ -157,18 +194,18 @@ fi
 grep -F 'Lua C callback appears outside a recognized source scope' \
   "$workspace/unexpected-registration.log"
 
-# The generic BTech dispatcher is a narrow exception, not an exemption for
-# arbitrary direct callback registration in the entire BTech binding tree.
+# The generic BTech dispatcher is a narrow exception. Other direct callbacks
+# in the BTech binding tree require a declaration-level ignore.
 btech_unexpected="$workspace/src/mux/lua/packages/btech/selector_unexpected_registration.c"
 mkdir -p "$(dirname "$btech_unexpected")"
-cp "$fixtures/selector_unexpected_registration.c" "$btech_unexpected"
+cp "$fixtures/btech_unexpected_registration.c" "$btech_unexpected"
 if "$generator" --check --output-dir output-a "${common[@]}" \
   "$btech_unexpected" "${compiler_flags[@]}" \
   >"$workspace/btech-unexpected-registration.log" 2>&1; then
   echo "direct BTech-tree callback unexpectedly passed" >&2
   exit 1
 fi
-grep -F 'Lua C callback appears outside a recognized source scope' \
+grep -F 'registered BTech handler/leaf lacks a documented ignore' \
   "$workspace/btech-unexpected-registration.log"
 rm "$btech_unexpected"
 rm "$unexpected_registration"
@@ -212,9 +249,11 @@ test "$btech_identity" = \
 
 "$generator" --check --output-dir output-a "${common[@]}" \
   "$btech_source" "$extension_source" "$mux_source" \
+  "$btech_constants_source" \
   "${compiler_flags[@]}"
 "$generator" --write --output-dir output-b "${common[@]}" \
   "$btech_source" "$extension_source" "$mux_source" \
+  "$btech_constants_source" \
   "${compiler_flags[@]}"
 cmp "$workspace/output-a/mux.d.lua" "$workspace/output-b/mux.d.lua"
 cmp "$workspace/output-a/btech.d.lua" "$workspace/output-b/btech.d.lua"

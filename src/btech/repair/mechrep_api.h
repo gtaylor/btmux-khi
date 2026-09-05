@@ -33,12 +33,37 @@ bool btech_admin_template_save(DbRef player, Mech *mech, const char *reference);
 void btech_admin_armor_set(Mech *mech, int section, bool has_armor, int armor,
                            bool has_internal, int internal, bool has_rear,
                            int rear);
-/** Restores default critical slots for every section. */
+/**
+ * Reports whether a section has combat-effective rear armor.
+ *
+ * Combat rear-armor consumption is authoritative: only center, left, and right
+ * torso sections on a Mech consume rear armor. Other stored rear values remain
+ * available to compatibility-oriented configuration and scheduled repair code.
+ *
+ * @param mech Unit whose class defines the section layout.
+ * @param section Zero-based class-specific section index.
+ * @return True only for a Mech center, left, or right torso.
+ */
+bool btech_admin_section_has_rear_armor(const Mech *mech, int section);
+/**
+ * Restores default critical slots, clears auxiliary slot metadata, and
+ * reconciles equipment-derived technology and section flags.
+ */
 void btech_admin_criticals_reset(Mech *mech);
-/** Installs a weapon into an already validated set of critical slots. */
+/**
+ * Installs a weapon, clears replaced-slot damage and selection metadata, and
+ * reconciles metadata derived from replaced parts.
+ *
+ * Slots must be unique, valid for the section, and contain no more than
+ * `NUM_CRITICALS` entries. Callers must validate the complete request before
+ * invoking this operation.
+ */
 void btech_admin_weapon_install(Mech *mech, int weapon, const int *slots,
                                 size_t slot_count, int section, int fire_modes);
-/** Configures an ammunition critical slot for a weapon. */
+/**
+ * Configures ammunition, clears replaced-slot damage and selection metadata,
+ * refills the slot, and reconciles metadata derived from the replaced part.
+ */
 void btech_admin_ammunition_configure(Mech *mech, int weapon, int section,
                                       int slot, int fire_modes,
                                       int ammunition_modes);
@@ -50,10 +75,15 @@ bool btech_admin_weapon_modes_set(Mech *mech, int weapon_number, int fire_modes,
 /** Performs an immediate administrative repair. */
 void btech_admin_repair(Mech *mech, BtechAdminRepairKind kind, int section,
                         int value);
-/** Configures a special-equipment or empty critical slot. */
+/**
+ * Configures a special-equipment or empty critical slot and reconciles
+ * metadata derived from the replaced part and newly installed special.
+ */
 void btech_admin_special_install(Mech *mech, int special, int section, int slot,
                                  int data);
-/** Adds or removes one technology bit. */
+/** Removes every CASE critical and CASE section-configuration flag. */
+void btech_admin_case_remove(Mech *mech);
+/** Adds or removes one technology bit, including related TSM/MASC criticals. */
 void btech_admin_technology_set(Mech *mech, BtechAdminTechnologyGroup group,
                                 int technology, bool enabled);
 /** Clears technologies in the selected group and related equipment. */

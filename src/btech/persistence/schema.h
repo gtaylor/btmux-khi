@@ -2,4 +2,4 @@
 
 #pragma once
 
-enum { BTECH_PERSISTENCE_SCHEMA_VERSION = 7 };
+enum { BTECH_PERSISTENCE_SCHEMA_VERSION = 8 };

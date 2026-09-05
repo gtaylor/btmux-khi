@@ -128,11 +128,14 @@ to avoid writing an operation.
 ## Persistence
 
 The BTech SQLite schema has its own version and is intentionally independent of
-in-memory structure layouts. The current schema version is 7. An offline reset
-operation removes the BTech extension's registry, configuration, and runtime
-tables. It preserves the core database's `btech_character_state`,
-`btech_character_values`, and `btech_economy_parts` tables. The server never
-performs this destructive reset automatically.
+in-memory structure layouts. The current schema version is 8. The guarded,
+transactional `game/data/migrations/btech-persistence-v8.sql` script migrates
+schema version 6 or 7 databases to version 8 while the server is stopped; back
+up the database before running it. An offline reset operation removes the BTech
+extension's registry, configuration, and runtime tables. It preserves the core
+database's `btech_character_state`, `btech_character_values`, and
+`btech_economy_parts` tables. The server never performs this destructive reset
+automatically.
 
 Shut down `stompymux` before resetting or replacing the game database. A normal
 dump creates the current BTech tables again.

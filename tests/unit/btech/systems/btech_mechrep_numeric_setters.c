@@ -9,9 +9,13 @@
 
 #include "btech/context.h"
 #include "command_handlers_api.h"
+#include "equipment_types.h"
 #include "mech_api_types.h"
+#include "mech_build_api.h"
 #include "mech_electronics_api.h"
+#include "mech_equipment_api.h"
 #include "mech_specification_api.h"
+#include "mechrep_slot_internal.h"
 #include "mux/commands/command_context.h"
 #include "mux/commands/command_helpers.h"
 #include "mux/network/network_output.h"
@@ -20,6 +24,7 @@
 #include "mux/support/checked_storage.h"
 #include "registry_api.h"
 #include "repair_job.h"
+#include "section_types.h"
 
 static BtechContext *const CONTEXT = (BtechContext *)1;
 static EvaluationContext *const EVALUATION = (EvaluationContext *)2;
@@ -36,6 +41,21 @@ static int radio_range;
 static int current_tonnage;
 static DbRef matched_target;
 static bool matched_target_is_mech;
+enum { CRITICAL_CAPACITY = NUM_SECTIONS * NUM_CRITICALS };
+static int critical_parts[CRITICAL_CAPACITY];
+static int critical_data[CRITICAL_CAPACITY];
+static int critical_fire_modes[CRITICAL_CAPACITY];
+static int critical_ammunition_modes[CRITICAL_CAPACITY];
+static int critical_damage_flags[CRITICAL_CAPACITY];
+static int critical_raw_brands[CRITICAL_CAPACITY];
+static int critical_desired_ammunition_sections[CRITICAL_CAPACITY];
+static int metadata_reconciliations;
+
+static int *critical_value(int *values, int section, int slot) {
+  return checked_storage_at(values, CRITICAL_CAPACITY, sizeof(*values),
+                            ((size_t)section * (size_t)NUM_CRITICALS) +
+                                (size_t)slot);
+}
 
 static void reset_state(void) {
   command_status = REPAIR_COMMAND_READY;
@@ -49,6 +69,21 @@ static void reset_state(void) {
   current_tonnage = 15;
   matched_target = NOTHING;
   matched_target_is_mech = false;
+  metadata_reconciliations = 0;
+  for (size_t index = 0; index < CRITICAL_CAPACITY; index++) {
+    *(int *)checked_storage_at(critical_damage_flags, CRITICAL_CAPACITY,
+                               sizeof(*critical_damage_flags), index) = 91;
+    *(int *)checked_storage_at(critical_raw_brands, CRITICAL_CAPACITY,
+                               sizeof(*critical_raw_brands), index) = 0xF9;
+    *(int *)checked_storage_at(
+        critical_desired_ammunition_sections, CRITICAL_CAPACITY,
+        sizeof(*critical_desired_ammunition_sections), index) = RTORSO;
+  }
+}
+
+void mechrep_equipment_metadata_reconcile(Mech *mech) {
+  assert(mech == MECH);
+  metadata_reconciliations++;
 }
 
 RepairCommandStatus
@@ -100,6 +135,42 @@ void mecha_notify(EvaluationContext *evaluation [[maybe_unused]],
 void notify_printf(EvaluationContext *evaluation [[maybe_unused]],
                    DbRef player [[maybe_unused]],
                    const char *format [[maybe_unused]], ...) {}
+
+void fill_default_criticals(Mech *mech [[maybe_unused]], int index) {
+  for (int slot = 0; slot < NUM_CRITICALS; slot++) {
+    *critical_value(critical_parts, index, slot) = 100 + index + slot;
+    *critical_value(critical_data, index, slot) = 20 + slot;
+    *critical_value(critical_fire_modes, index, slot) = REAR_MOUNT;
+    *critical_value(critical_ammunition_modes, index, slot) = ARTEMIS_MODE;
+  }
+}
+
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): Stubbed public APIs.
+void mech_critical_damage_flags_set(Mech *mech [[maybe_unused]], int section,
+                                    int critical, int flags) {
+  *critical_value(critical_damage_flags, section, critical) = flags;
+}
+
+void mech_critical_desired_ammo_section_set(Mech *mech [[maybe_unused]],
+                                            int section, int critical,
+                                            int ammo_section) {
+  *critical_value(critical_desired_ammunition_sections, section, critical) =
+      ammo_section;
+}
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
+void mech_critical_temporary_failure_set(
+    const CriticalSlotFailureSet *request) {
+  int *brand = critical_value(critical_raw_brands, request->slot.section,
+                              request->slot.critical);
+  *brand = (*brand & 0x0F) | (request->failure << 4);
+}
+
+void mech_critical_brand_set(const CriticalSlotBrandSet *request) {
+  int *brand = critical_value(critical_raw_brands, request->slot.section,
+                              request->slot.critical);
+  *brand = (*brand & 0xF0) | request->brand;
+}
 
 float mech_maximum_speed(const Mech *mech [[maybe_unused]]) {
   return maximum_speed;
@@ -272,9 +343,34 @@ static void test_setters_reject_unavailable_contexts(void) {
   assert(heat_sinks == 10);
 }
 
+static void test_critical_reset_clears_auxiliary_metadata_for_every_slot(void) {
+  reset_state();
+  maximum_speed = 37.5F;
+
+  btech_admin_criticals_reset(MECH);
+  assert(metadata_reconciliations == 1);
+
+  for (int section = 0; section < NUM_SECTIONS; section++) {
+    for (int slot = 0; slot < NUM_CRITICALS; slot++) {
+      assert(*critical_value(critical_parts, section, slot) ==
+             100 + section + slot);
+      assert(*critical_value(critical_data, section, slot) == 20 + slot);
+      assert(*critical_value(critical_fire_modes, section, slot) == REAR_MOUNT);
+      assert(*critical_value(critical_ammunition_modes, section, slot) ==
+             ARTEMIS_MODE);
+      assert(*critical_value(critical_damage_flags, section, slot) == 0);
+      assert(*critical_value(critical_raw_brands, section, slot) == 0);
+      assert(*critical_value(critical_desired_ammunition_sections, section,
+                             slot) == -1);
+    }
+  }
+  assert(maximum_speed == 37.5F);
+}
+
 int main(void) {
   test_speed_setters_reject_invalid_values();
   test_integer_setters_reject_unsafe_values();
   test_setters_reject_unavailable_contexts();
+  test_critical_reset_clears_auxiliary_metadata_for_every_slot();
   return 0;
 }

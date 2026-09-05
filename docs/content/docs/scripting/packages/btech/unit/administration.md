@@ -4,9 +4,9 @@ type: docs
 toc_hide: false
 ---
 
-These functions configure live units using typed values and request tables.
-All section, unit-type, movement-type, technology, and mode names are matched
-without regard to ASCII letter case.
+These functions configure live units using typed constants and request tables.
+Raw strings are rejected for sections, unit and movement types, technologies,
+technology groups, and fire or ammunition modes.
 
 ## restore
 
@@ -39,7 +39,7 @@ Returns effective maximum speed in kilometers per hour.
 ```lua
 btech.unit.install_weapon(unit, {
   part = weapon,
-  section = "Right Torso",
+  section = btech.unit.sections.RIGHT_TORSO,
   slots = { 1, 2 },
   rear_facing = false,
   targeting_computer = false,
@@ -49,14 +49,17 @@ btech.unit.install_weapon(unit, {
 
 `part` is a `BtechPartRef`. Slots are one-based, unique, and must provide the
 weapon's required critical space. Large weapons may provide a partial section
-when the remaining criticals are installed separately.
+when the remaining criticals are installed separately. Each selected slot has
+its prior damage and selection/auxiliary metadata cleared. Equipment-derived
+metadata for displaced parts is reconciled against the remaining critical-slot
+grid.
 
 ## install_special
 
 ```lua
 btech.unit.install_special(unit, {
   part = equipment,
-  section = "Center Torso",
+  section = btech.unit.sections.CENTER_TORSO,
   slot = 1,
   auxiliary_data = 0,
 })
@@ -71,27 +74,33 @@ Equipment-derived technology and section configuration are updated.
 btech.unit.reset_critical_slots(unit)
 ```
 
-Restores the default critical-slot layout for every unit section.
+Restores the default critical-slot layout for every unit section and clears
+per-slot damage and selection/auxiliary metadata. Equipment technology flags,
+CASE section configuration, and Inner Sphere and Clan anti-missile-system flags
+are then re-derived from the restored critical-slot grid.
 
 ## configure_ammunition
 
 ```lua
 btech.unit.configure_ammunition(unit, {
   weapon = weapon,
-  section = "Left Torso",
+  section = btech.unit.sections.LEFT_TORSO,
   slot = 4,
   half_ton = false,
-  ammunition_modes = { "Artemis/Mine" },
+  ammunition_modes = { btech.unit.ammunition_modes.ARTEMIS_MINE },
 })
 ```
 
 Configures and fills an ammunition bin for the referenced weapon. The weapon
-must use ammunition. Mode names are the names returned by `critical_slots`.
+must use ammunition. Mode names are the names returned by `critical_slots`. The
+replaced slot has its prior damage and selection/auxiliary metadata cleared,
+and equipment-derived metadata for its displaced part is reconciled against
+the remaining critical-slot grid.
 
 ## restock_ammunition
 
 ```lua
-btech.unit.restock_ammunition(unit, section, slot)
+btech.unit.restock_ammunition(unit, btech.unit.sections.LEFT_TORSO, slot)
 ```
 
 Fills an operational ammunition bin to its calculated capacity.
@@ -100,8 +109,8 @@ Fills an operational ammunition bin to its calculated capacity.
 
 ```lua
 btech.unit.set_weapon_modes(unit, weapon_number, {
-  fire_modes = { "RearMount" },
-  ammunition_modes = { "Precision" },
+  fire_modes = { btech.unit.fire_modes.REAR_MOUNT },
+  ammunition_modes = { btech.unit.ammunition_modes.PRECISION },
 })
 ```
 
@@ -114,8 +123,9 @@ mode arrays are empty sets.
 btech.unit.add_technology(unit, technology)
 ```
 
-Adds a technology by the `code` returned from `technologies`. Infantry
-technologies require a battlesuit.
+Adds a typed constant from `btech.unit.technology`; the `code` returned from
+`technologies` is the same type and round-trips directly. Infantry technologies
+require a battlesuit.
 
 ## remove_technology
 
@@ -123,34 +133,36 @@ technologies require a battlesuit.
 btech.unit.remove_technology(unit, technology)
 ```
 
-Removes a technology by the `code` returned from `technologies`. Infantry
-technologies require a battlesuit.
+Removes a typed constant from `btech.unit.technology`; the `code` returned from
+`technologies` round-trips directly. Infantry technologies require a
+battlesuit.
 
 ## clear_technologies
 
 ```lua
-btech.unit.clear_technologies(unit, group)
+btech.unit.clear_technologies(unit, btech.unit.technology_groups.UNIT)
 ```
 
-`group` is `unit`, `infantry`, or `all`. Clearing unit technologies also
-removes equipment and section configuration directly associated with them.
+`group` comes from `btech.unit.technology_groups`. Clearing unit technologies
+also removes equipment and section configuration directly associated with
+them.
 
 ## set_unit_type
 
 ```lua
-btech.unit.set_unit_type(unit, unit_type)
+btech.unit.set_unit_type(unit, btech.unit.types.MECH)
 ```
 
-Unit types use the canonical template names. Setting a unit type also selects
-its standard movement type where one is intrinsic to that type.
+Unit types come from `btech.unit.types`. Setting a unit type also selects its
+standard movement type where one is intrinsic to that type.
 
 ## set_movement_type
 
 ```lua
-btech.unit.set_movement_type(unit, movement_type)
+btech.unit.set_movement_type(unit, btech.unit.movement_types.BIPED)
 ```
 
-Movement types use the canonical template names.
+Movement types come from `btech.unit.movement_types`.
 
 ## set_jump_speed
 

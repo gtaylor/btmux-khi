@@ -119,34 +119,26 @@ void mechrep_raddspecial(DbRef player, void *data, char *buffer) {
   btech_admin_special_install(mech, itemcode, index, subsect, newdata);
   switch (itemcode) {
   case CASE:
-    mech_section_configuration_add(
-        mech, (mech_class(mech) == CLASS_VEH_GROUND) ? BSIDE : index,
-        CASE_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "CASE Technology added to section.");
     break;
   case TRIPLE_STRENGTH_MYOMER:
-    mech_technology_flags_add(mech, TRIPLE_MYOMER_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Triple Strength Myomer Technology added to 'Mech.");
     break;
   case MASC:
-    mech_technology_flags_add(mech, MASC_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Myomer Accelerator Signal Circuitry added to 'Mech.");
     break;
   case C3_MASTER:
-    mech_technology_flags_add(mech, C3_MASTER_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "C3 Command Unit added to 'Mech.");
     break;
   case C3_SLAVE:
-    mech_technology_flags_add(mech, C3_SLAVE_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "C3 Slave Unit added to 'Mech.");
     break;
   case ARTEMIS_IV:
-    mech_technology_flags_add(mech, ARTEMIS_IV_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Artemis IV Fire-Control System added to 'Mech.");
     notify_printf(btech_context_evaluation(context), player,
@@ -154,42 +146,34 @@ void mechrep_raddspecial(DbRef player, void *data, char *buffer) {
                   newdata);
     break;
   case ECM:
-    mech_technology_flags_add(mech, ECM_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Guardian ECM Suite added to 'Mech.");
     break;
   case ANGELECM:
-    mech_technology_flags_secondary_add(mech, ANGEL_ECM_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Angel ECM Suite added to 'Mech.");
     break;
   case BEAGLE_PROBE:
-    mech_technology_flags_add(mech, BEAGLE_PROBE_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Beagle Active Probe added to 'Mech.");
     break;
   case LIGHT_BAP:
-    mech_technology_flags_add(mech, LIGHT_BAP_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Light Beagle Active Probe added to 'Mech.");
     break;
   case TAG:
-    mech_technology_flags_secondary_add(mech, TAG_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "TAG added to 'Mech.");
     break;
   case C3I:
-    mech_technology_flags_secondary_add(mech, C3I_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Improved C3 added to 'Mech.");
     break;
   case BLOODHOUND_PROBE:
-    mech_technology_flags_secondary_add(mech, BLOODHOUND_PROBE_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Bloodhound Active Probe added to 'Mech.");
     break;
   case TARGETING_COMPUTER:
-    mech_technology_flags_secondary_add(mech, TCOMP_TECH);
     mecha_notify(btech_context_evaluation(context), player,
                  "Targeting Computer added to 'Mech.");
     break;
@@ -380,19 +364,6 @@ void mechrep_gettechstring(Mech *mech, char *buffer) {
       .buffer = buffer});
 }
 
-static void remove_critical_type(Mech *mech, int part_type) {
-  for (int section = 0; section < NUM_SECTIONS; ++section)
-    for (int critical = 0; critical < NUM_CRITICALS; ++critical)
-      if (mech_critical_part_type(mech, section, critical) == part_type)
-        mech_critical_part_type_set(mech, section, critical, EMPTY);
-}
-
-static void remove_case_technology(Mech *mech) {
-  remove_critical_type(mech, special_equipment_index(CASE));
-  for (int section = 0; section < NUM_SECTIONS; ++section)
-    mech_section_configuration_remove(mech, section, CASE_TECH);
-}
-
 void mechrep_rdeltech(DbRef player, void *data, char *buffer) {
   int nv;
   int nv2;
@@ -458,23 +429,13 @@ void mechrep_rdeltech(DbRef player, void *data, char *buffer) {
   }
 
   if (strcasecmp(buffer, "Case") == 0) {
-    remove_case_technology(mech);
+    btech_admin_case_remove(mech);
     mecha_notify(btech_context_evaluation(context), player,
                  "Case Technology Removed");
     return;
   }
 
   if (nv > 0) {
-
-    if (strcasecmp(buffer, "TripleMyomerTech") == 0) {
-      if (mech_technology_flags(mech) & TRIPLE_MYOMER_TECH)
-        remove_critical_type(mech,
-                             special_equipment_index(TRIPLE_STRENGTH_MYOMER));
-    } else if (strcasecmp(buffer, "Masc") == 0) {
-      if (mech_technology_flags(mech) & MASC_TECH)
-        remove_critical_type(mech, special_equipment_index(MASC));
-    }
-
     btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_PRIMARY, nv, false);
     notify_printf(btech_context_evaluation(context), player,
                   "%s Technology Removed", buffer);

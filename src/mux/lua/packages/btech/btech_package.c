@@ -10,6 +10,7 @@
 #include "mux/lua/lua_error.h"
 #include "mux/lua/lua_error_codes.h"
 #include "mux/lua/lua_runtime.h"
+#include "mux/lua/packages/btech/btech_constants.h"
 #include "mux/lua/packages/btech/btech_package.h"
 #include "mux/lua/packages/btech/btech_package_internal.h"
 #include "mux/lua/packages/mux/mux_package_internal.h"
@@ -232,6 +233,7 @@ BtechContext *lua_btech_context(LuaBtechPackage *package) {
  */
 void lua_btech_package_install(lua_State *state, LuaBtechPackage *package) {
   lua_newtable(state);
+  lua_btech_constant_install_metatables(state);
   lua_btech_install_unit_bindings(state, package);
   lua_btech_install_map_bindings(state, package);
   lua_btech_install_player_bindings(state, package);
@@ -240,6 +242,7 @@ void lua_btech_package_install(lua_State *state, LuaBtechPackage *package) {
   lua_btech_install_repair_bindings(state, package);
   lua_btech_install_system_bindings(state, package);
   lua_btech_install_template_bindings(state, package);
+  lua_btech_install_autopilot_bindings(state, package);
   lua_newtable(state);
   if (!lua_error_push_code_tree(state, "btech")) {
     (void)lua_error_raise(state, LUA_ERROR_CODE_INTERNAL,

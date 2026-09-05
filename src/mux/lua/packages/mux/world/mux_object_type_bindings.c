@@ -266,6 +266,8 @@ void lua_mux_install_object_type_bindings(lua_State *state,
   lua_setfield(state, -2, "__eq");
   lua_pushcfunction(state, lua_mux_object_type_immutable);
   lua_setfield(state, -2, "__newindex");
+  lua_pushstring(state, "protected object type constant metatable");
+  lua_setfield(state, -2, "__metatable");
   lua_pop(state, 1);
 
   luaL_newmetatable(state, LUA_MUX_OBJECT_TYPE_NAMESPACE_METATABLE);
@@ -273,6 +275,8 @@ void lua_mux_install_object_type_bindings(lua_State *state,
   lua_setfield(state, -2, "__index");
   lua_pushcfunction(state, lua_mux_object_type_immutable);
   lua_setfield(state, -2, "__newindex");
+  lua_pushstring(state, "protected object type namespace metatable");
+  lua_setfield(state, -2, "__metatable");
   lua_pop(state, 1);
 
   LuaMuxObjectTypeNamespace *name_space =

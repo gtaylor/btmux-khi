@@ -19,8 +19,9 @@ btech.unit.armor( unit, section )
 `DbRef|Object unit`
 : The live unit.
 
-`string|nil section`
-: An optional class-specific section name or abbreviation.
+`BtechSection|nil section`
+: An optional typed constant from [`btech.unit.sections`](../sections/) that is
+  valid for the unit.
 
 ### Returns
 
@@ -32,6 +33,8 @@ btech.unit.armor( unit, section )
 When `section` is omitted, the returned armor, internal-structure, and rear-
 armor values are totals across all sections, and the record has no `section`
 field.
+When present, the returned `section` is the same typed constant and round-trips
+into section-taking functions.
 
 ## See Also
 

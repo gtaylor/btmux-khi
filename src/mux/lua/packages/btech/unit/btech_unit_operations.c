@@ -13,7 +13,6 @@
 #include "btech/special/registry_api.h"
 #include "btech/special_objects.h"
 #include "btech/unit/mech_build_api.h"
-#include "btech/unit/mech_classification_api.h"
 #include "btech/unit/mech_equipment_api.h"
 #include "btech/unit/mech_partnames_api.h"
 #include "btech/unit/mech_specification_api.h"
@@ -27,6 +26,7 @@
 #include "mux/lua/lua_error_codes.h"
 #include "mux/lua/packages/btech/btech_package.h"
 #include "mux/lua/packages/btech/btech_package_internal.h"
+#include "mux/lua/packages/btech/unit/btech_unit_constants.h"
 #include "mux/objects/flags.h"
 #include "mux/server/platform.h"
 #include "mux/support/checked_storage.h"
@@ -115,7 +115,7 @@ static int lua_btech_unit_effective_max_speed_kph(lua_State *state,
 static int lua_btech_unit_section_condition(lua_State *state,
                                             LuaBtechPackage *package) {
   Mech *mech = require_mech(state, package);
-  const int SECTION = lua_btech_optional_section(state, mech, 2);
+  const int SECTION = lua_btech_optional_section(state, package, mech, 2);
   if (SECTION < 0)
     return lua_error_arg(state, 2, LUA_ERROR_CODE_ARG_INVALID,
                          "section is required");
@@ -154,7 +154,7 @@ static int lua_btech_unit_set_armor(lua_State *state,
                                     LuaBtechPackage *package) {
   static const char *const FIELDS[] = {"armor", "internal", "rear_armor"};
   Mech *mech = require_mech(state, package);
-  const int SECTION = lua_btech_optional_section(state, mech, 2);
+  const int SECTION = lua_btech_optional_section(state, package, mech, 2);
   if (SECTION < 0 || mech_section_original_internal(mech, SECTION) == 0)
     return lua_error_arg(state, 2, LUA_ERROR_CODE_ARG_INVALID,
                          "section is required and must exist on the unit");
@@ -209,15 +209,7 @@ static void push_tic_weapon(lua_State *state, LuaBtechPackage *package,
   lua_newtable(state);
   lua_pushinteger(state, number);
   lua_setfield(state, -2, "number");
-  const UnitSectionCatalog CATALOG = {
-      .unit_type = mech_class(mech),
-      .movement_type = mech_movement_type(mech),
-  };
-  const char *section = unit_section_name(&CATALOG, (size_t)SECTION);
-  if (section == nullptr)
-    (void)lua_error_raise(state, LUA_ERROR_CODE_INTERNAL,
-                          "mounted weapon contains an invalid section");
-  lua_pushstring(state, section);
+  lua_btech_section_push(state, package, mech, SECTION);
   lua_setfield(state, -2, "section");
   lua_pushinteger(state, SLOT + 1);
   lua_setfield(state, -2, "first_slot");

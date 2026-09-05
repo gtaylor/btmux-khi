@@ -440,9 +440,6 @@ void mechrep_rfiremode(DbRef player, void *data, char *buffer) {
     mech_critical_ammo_mode_set(mech, section, critical, 0);
     mech_critical_fire_mode_set(mech, section, critical, 0);
   }
-  (void)btech_admin_weapon_modes_set(
-      mech, weapon_number, mech_critical_fire_mode(mech, section, critical),
-      mech_critical_ammo_mode(mech, section, critical));
   mecha_notify(btech_context_evaluation(context), player, "Firemode changed!");
 }
 /*
@@ -454,6 +451,8 @@ void mechrep_rreload(DbRef player, void *data, char *buffer) {
   int index;
   int weapindex;
   int subsect;
+  int fire_modes;
+  int ammunition_modes;
   MechAdminCommandContext repair_command;
   RepairCommandStatus repair_status =
       mech_admin_command_context_initialize(player, data, &repair_command);
@@ -500,95 +499,96 @@ void mechrep_rreload(DbRef player, void *data, char *buffer) {
     mecha_notify(btech_context_evaluation(mech_context(mech)), player,
                  "That weapon doesn't require ammo!");
   } else {
-    mech_critical_part_type_set(mech, index, subsect,
-                                ammunition_equipment_index(weapindex));
-    if (!(mech_critical_fire_mode(mech, index, subsect) & HALFTON_MODE)) {
-      mech_critical_fire_mode_set(mech, index, subsect, 0);
-      mech_critical_ammo_mode_set(mech, index, subsect, 0);
+    fire_modes = mech_critical_fire_mode(mech, index, subsect);
+    ammunition_modes = mech_critical_ammo_mode(mech, index, subsect);
+    if (fire_modes & HALFTON_MODE) {
+      fire_modes = HALFTON_MODE;
+      ammunition_modes &= AMMO_MODES;
+    } else {
+      fire_modes = 0;
+      ammunition_modes = 0;
     }
     if (argc > 3) {
       switch (ascii_to_upper(*checked_string_suffix(args[3], 0))) {
       case '+':
-        mech_critical_fire_mode_add(mech, index, subsect, HALFTON_MODE);
+        fire_modes |= HALFTON_MODE;
         break;
       case '#':
-        mech_critical_ammo_mode_add(mech, index, subsect, MML_LRM_MODE);
+        ammunition_modes |= MML_LRM_MODE;
         break;
       case 'W':
-        mech_critical_ammo_mode_add(mech, index, subsect, SWARM_MODE);
+        ammunition_modes |= SWARM_MODE;
         break;
       case '1':
-        mech_critical_ammo_mode_add(mech, index, subsect, SWARM1_MODE);
+        ammunition_modes |= SWARM1_MODE;
         break;
       case 'I':
-        mech_critical_ammo_mode_add(mech, index, subsect, INFERNO_MODE);
+        ammunition_modes |= INFERNO_MODE;
         break;
       case 'L':
-        mech_critical_ammo_mode_add(mech, index, subsect, LBX_MODE);
+        ammunition_modes |= LBX_MODE;
         break;
       case 'A':
-        mech_critical_ammo_mode_add(mech, index, subsect, ARTEMIS_MODE);
+        ammunition_modes |= ARTEMIS_MODE;
         break;
       case 'N':
-        mech_critical_ammo_mode_add(mech, index, subsect, NARC_MODE);
+        ammunition_modes |= NARC_MODE;
         break;
       case 'C':
-        mech_critical_ammo_mode_add(mech, index, subsect, CLUSTER_MODE);
+        ammunition_modes |= CLUSTER_MODE;
         break;
       case 'M':
-        mech_critical_ammo_mode_add(mech, index, subsect, MINE_MODE);
+        ammunition_modes |= MINE_MODE;
         break;
       case 'S':
-        mech_critical_ammo_mode_add(mech, index, subsect, SMOKE_MODE);
+        ammunition_modes |= SMOKE_MODE;
         break;
       case 'Z':
-        mech_critical_ammo_mode_add(mech, index, subsect, INARC_NEMESIS_MODE);
+        ammunition_modes |= INARC_NEMESIS_MODE;
         break;
       case 'X':
-        mech_critical_ammo_mode_add(mech, index, subsect, INARC_EXPLO_MODE);
+        ammunition_modes |= INARC_EXPLO_MODE;
         break;
       case 'Y':
-        mech_critical_ammo_mode_add(mech, index, subsect, INARC_HAYWIRE_MODE);
+        ammunition_modes |= INARC_HAYWIRE_MODE;
         break;
       case 'E':
-        mech_critical_ammo_mode_add(mech, index, subsect, INARC_ECM_MODE);
+        ammunition_modes |= INARC_ECM_MODE;
         break;
       case 'R':
-        mech_critical_ammo_mode_add(mech, index, subsect, AC_AP_MODE);
+        ammunition_modes |= AC_AP_MODE;
         break;
       case 'F':
-        mech_critical_ammo_mode_add(mech, index, subsect, AC_FLECHETTE_MODE);
+        ammunition_modes |= AC_FLECHETTE_MODE;
         break;
       case 'D':
-        mech_critical_ammo_mode_add(mech, index, subsect, AC_INCENDIARY_MODE);
+        ammunition_modes |= AC_INCENDIARY_MODE;
         break;
       case 'P':
-        mech_critical_ammo_mode_add(mech, index, subsect, AC_PRECISION_MODE);
+        ammunition_modes |= AC_PRECISION_MODE;
         break;
       case 'T':
-        mech_critical_ammo_mode_add(mech, index, subsect, STINGER_MODE);
+        ammunition_modes |= STINGER_MODE;
         break;
       case 'U':
-        mech_critical_ammo_mode_add(mech, index, subsect, AC_CASELESS_MODE);
+        ammunition_modes |= AC_CASELESS_MODE;
         break;
       case 'G':
-        mech_critical_ammo_mode_add(mech, index, subsect, SGUIDED_MODE);
+        ammunition_modes |= SGUIDED_MODE;
         break;
       case 'H':
-        mech_critical_ammo_mode_add(mech, index, subsect, ATM_HE_MODE);
+        ammunition_modes |= ATM_HE_MODE;
         break;
       case 'V':
-        mech_critical_ammo_mode_add(mech, index, subsect, ATM_ER_MODE);
+        ammunition_modes |= ATM_ER_MODE;
         break;
       case '-':
-        mech_critical_ammo_mode_set(mech, index, subsect, 0);
-        mech_critical_fire_mode_set(mech, index, subsect, 0);
+        ammunition_modes = 0;
+        fire_modes = 0;
       }
     }
-    btech_admin_ammunition_configure(
-        mech, weapindex, index, subsect,
-        mech_critical_fire_mode(mech, index, subsect),
-        mech_critical_ammo_mode(mech, index, subsect));
+    btech_admin_ammunition_configure(mech, weapindex, index, subsect,
+                                     fire_modes, ammunition_modes);
     mecha_notify(btech_context_evaluation(context), player, "Weapon loaded!");
   }
 }
@@ -755,13 +755,13 @@ void mechrep_rrepair(DbRef player, void *data, char *buffer) {
   case 'R':
   case 'r':
     /* rear */
-    if (index == CTORSO || index == LTORSO || index == RTORSO) {
+    if (btech_admin_section_has_rear_armor(mech, index)) {
       btech_admin_repair(mech, BTECH_ADMIN_REPAIR_REAR_ARMOR, index, value);
       mecha_notify(btech_context_evaluation(context), player,
                    "Rear armor repaired!");
     } else {
       mecha_notify(btech_context_evaluation(context), player,
-                   "Only the center, rear and left torso have rear armor!");
+                   "Only Mech center, left, and right torsos have rear armor!");
     }
     break;
   case 'S':

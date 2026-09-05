@@ -14,6 +14,7 @@
 #include "mech_equipment_api.h"
 #include "mech_identity_api.h"
 #include "mech_specification_api.h"
+#include "mech_status_types.h"
 #include "mech_utils_api.h"
 #include "mux/network/network_output.h"
 #include "mux/support/checked_storage.h"
@@ -27,6 +28,8 @@ static EvaluationContext *const evaluation = (EvaluationContext *)2;
 static Mech *const mech = (Mech *)3;
 static RepairCommandStatus command_status;
 static UnitClass unit_class;
+static int technology_flags;
+static int secondary_technology_flags;
 static int infantry_flags;
 static int cargo_space;
 static int carrier_maximum_tonnage;
@@ -36,9 +39,14 @@ static int ammunition_per_ton_calls;
 static int full_ammo_calls;
 static int data_set_calls;
 static int critical_part_type_calls;
+static int case_configuration_removals;
+static int section_configurations[NUM_SECTIONS];
 static bool critical_destroyed;
 static int configured_count;
 static CriticalSlotConfiguration configured[NUM_CRITICALS];
+static bool use_critical_grid;
+enum { CRITICAL_PART_CAPACITY = NUM_SECTIONS * NUM_CRITICALS };
+static int critical_parts[CRITICAL_PART_CAPACITY];
 static struct {
   int part_type;
   int data;
@@ -50,9 +58,22 @@ static struct {
   int desired_ammo_section;
 } special_slot;
 
+static int *critical_part_address(int section, int critical) {
+  return checked_storage_at(
+      critical_parts, CRITICAL_PART_CAPACITY, sizeof(*critical_parts),
+      ((size_t)section * (size_t)NUM_CRITICALS) + (size_t)critical);
+}
+
+static int *section_configuration_address(int section) {
+  return checked_storage_at(section_configurations, NUM_SECTIONS,
+                            sizeof(*section_configurations), (size_t)section);
+}
+
 static void reset_state(void) {
   command_status = REPAIR_COMMAND_READY;
   unit_class = CLASS_BSUIT;
+  technology_flags = 0;
+  secondary_technology_flags = 0;
   infantry_flags = 123;
   cargo_space = 456;
   carrier_maximum_tonnage = 78;
@@ -62,9 +83,13 @@ static void reset_state(void) {
   full_ammo_calls = 0;
   data_set_calls = 0;
   critical_part_type_calls = 0;
+  case_configuration_removals = 0;
+  memset(section_configurations, 0, sizeof(section_configurations));
   critical_destroyed = false;
   configured_count = 0;
+  use_critical_grid = false;
   memset(configured, 0, sizeof(configured));
+  memset(critical_parts, 0, sizeof(critical_parts));
   special_slot = (typeof(special_slot)){
       .part_type = 901,
       .data = 19,
@@ -166,6 +191,10 @@ void mech_critical_configure(const CriticalSlotConfiguration *configuration) {
   special_slot.data = configuration->data;
   special_slot.fire_mode = configuration->fire_mode;
   special_slot.ammo_mode = configuration->ammo_mode;
+  if (use_critical_grid)
+    *critical_part_address(configuration->slot.section,
+                           configuration->slot.critical) =
+        configuration->part_type;
 }
 
 void mech_critical_damage_flags_set(Mech *value [[maybe_unused]],
@@ -205,15 +234,53 @@ bool weapon_catalogue_has_special(int weapon_index [[maybe_unused]],
   return false;
 }
 
-void mech_technology_flags_add(Mech *value [[maybe_unused]],
-                               int flags [[maybe_unused]]) {}
+bool weapon_catalogue_is_anti_missile(int weapon_index [[maybe_unused]]) {
+  return false;
+}
+
+void mech_technology_flags_add(Mech *value [[maybe_unused]], int flags) {
+  technology_flags |= flags;
+}
+
+void mech_technology_flags_remove(Mech *value [[maybe_unused]], int flags) {
+  technology_flags &= ~flags;
+}
+
+int mech_technology_flags(const Mech *value [[maybe_unused]]) {
+  return technology_flags;
+}
 
 void mech_technology_flags_secondary_add(Mech *value [[maybe_unused]],
-                                         int flags [[maybe_unused]]) {}
+                                         int flags) {
+  secondary_technology_flags |= flags;
+}
 
-void mech_section_configuration_add(Mech *value [[maybe_unused]],
-                                    int section [[maybe_unused]],
-                                    int configuration [[maybe_unused]]) {}
+void mech_technology_flags_secondary_remove(Mech *value [[maybe_unused]],
+                                            int flags) {
+  secondary_technology_flags &= ~flags;
+}
+
+void mech_infantry_technology_flags_add(Mech *value [[maybe_unused]],
+                                        int flags) {
+  infantry_flags |= flags;
+}
+
+int mech_infantry_technology_flags(const Mech *value [[maybe_unused]]) {
+  return infantry_flags;
+}
+
+void mech_section_configuration_add(Mech *value [[maybe_unused]], int section,
+                                    int configuration) {
+  *section_configuration_address(section) |= configuration;
+}
+
+void mech_section_configuration_remove(Mech *value [[maybe_unused]],
+                                       int section [[maybe_unused]],
+                                       int configuration) {
+  assert(configuration == CASE_TECH);
+  *section_configuration_address(section) &= ~configuration;
+  case_configuration_removals++;
+}
 
 int crits_in_loc(Mech *value [[maybe_unused]], int section [[maybe_unused]]) {
   return section_critical_count;
@@ -232,11 +299,18 @@ void mech_critical_data_set(Mech *value [[maybe_unused]],
   special_slot.data = data;
 }
 
-int mech_critical_part_type(const Mech *value [[maybe_unused]],
-                            int section [[maybe_unused]],
-                            int critical [[maybe_unused]]) {
+int mech_critical_part_type(const Mech *value [[maybe_unused]], int section,
+                            int critical) {
   critical_part_type_calls++;
+  if (use_critical_grid)
+    return *critical_part_address(section, critical);
   return special_slot.part_type;
+}
+
+void mech_critical_part_type_set(Mech *value [[maybe_unused]], int section,
+                                 int critical, int part_type) {
+  assert(use_critical_grid);
+  *critical_part_address(section, critical) = part_type;
 }
 
 bool mech_critical_is_destroyed(const Mech *value [[maybe_unused]],
@@ -311,11 +385,16 @@ static void test_addweap_validates_before_mutation(void) {
   assert(configured[1].slot.critical == 1);
 
   reset_state();
+  use_critical_grid = true;
+  technology_flags = ECM_TECH;
+  *critical_part_address(HEAD, 0) = special_equipment_index(ECM);
   assert_no_addition("Laser HEAD 1");
   assert_no_addition("Laser HEAD 1 2 3");
   assert_no_addition("Laser HEAD 13 1");
   assert_no_addition("Laser HEAD 1 13");
   assert_no_addition("Laser HEAD 1 1");
+  assert((technology_flags & ECM_TECH) != 0);
+  assert(*critical_part_address(HEAD, 0) == special_equipment_index(ECM));
 
   reset_state();
   weapon_critical_count = 9;
@@ -339,6 +418,161 @@ static void test_raddspecial_replaces_slot_with_fresh_state(void) {
   assert(special_slot.temporary_failure == 0);
   assert(special_slot.brand == 0);
   assert(special_slot.desired_ammo_section == -1);
+}
+
+typedef struct SpecialTechnologyExpectation {
+  int special;
+  int flag;
+  bool secondary;
+} SpecialTechnologyExpectation;
+
+static void test_special_install_reconciles_every_derived_technology(void) {
+  static const SpecialTechnologyExpectation EXPECTATIONS[] = {
+      {TRIPLE_STRENGTH_MYOMER, TRIPLE_MYOMER_TECH, false},
+      {MASC, MASC_TECH, false},
+      {C3_MASTER, C3_MASTER_TECH, false},
+      {C3_SLAVE, C3_SLAVE_TECH, false},
+      {ARTEMIS_IV, ARTEMIS_IV_TECH, false},
+      {ECM, ECM_TECH, false},
+      {BEAGLE_PROBE, BEAGLE_PROBE_TECH, false},
+      {LIGHT_BAP, LIGHT_BAP_TECH, false},
+      {ANGELECM, ANGEL_ECM_TECH, true},
+      {TAG, TAG_TECH, true},
+      {C3I, C3I_TECH, true},
+      {BLOODHOUND_PROBE, BLOODHOUND_PROBE_TECH, true},
+      {TARGETING_COMPUTER, TCOMP_TECH, true},
+  };
+
+  for (size_t index = 0; index < sizeof(EXPECTATIONS) / sizeof(*EXPECTATIONS);
+       index++) {
+    const SpecialTechnologyExpectation *expectation = checked_storage_at_const(
+        EXPECTATIONS, sizeof(EXPECTATIONS) / sizeof(*EXPECTATIONS),
+        sizeof(*EXPECTATIONS), index);
+    reset_state();
+    use_critical_grid = true;
+    technology_flags = CLAN_TECH;
+    secondary_technology_flags = STEALTH_ARMOR_TECH;
+
+    btech_admin_special_install(mech, expectation->special, HEAD, 0, 0);
+    const int INSTALLED_FLAGS =
+        expectation->secondary ? secondary_technology_flags : technology_flags;
+    assert((INSTALLED_FLAGS & expectation->flag) != 0);
+
+    btech_admin_special_install(mech, -1, HEAD, 0, 0);
+    const int CLEARED_FLAGS =
+        expectation->secondary ? secondary_technology_flags : technology_flags;
+    assert((CLEARED_FLAGS & expectation->flag) == 0);
+    assert((technology_flags & CLAN_TECH) != 0);
+    assert((secondary_technology_flags & STEALTH_ARMOR_TECH) != 0);
+  }
+}
+
+static void test_special_replacement_reconciles_old_and_new_metadata(void) {
+  reset_state();
+  use_critical_grid = true;
+  technology_flags = CLAN_TECH;
+  secondary_technology_flags = STEALTH_ARMOR_TECH;
+
+  btech_admin_special_install(mech, ECM, HEAD, 0, 0);
+  assert((technology_flags & ECM_TECH) != 0);
+
+  btech_admin_special_install(mech, TAG, HEAD, 0, 0);
+  assert((technology_flags & ECM_TECH) == 0);
+  assert((secondary_technology_flags & TAG_TECH) != 0);
+  assert((technology_flags & CLAN_TECH) != 0);
+  assert((secondary_technology_flags & STEALTH_ARMOR_TECH) != 0);
+}
+
+static void test_special_replacement_preserves_metadata_for_duplicate(void) {
+  reset_state();
+  use_critical_grid = true;
+
+  btech_admin_special_install(mech, ECM, HEAD, 0, 0);
+  btech_admin_special_install(mech, ECM, HEAD, 0, 0);
+  assert((technology_flags & ECM_TECH) != 0);
+  btech_admin_special_install(mech, ECM, CTORSO, 1, 0);
+  btech_admin_special_install(mech, -1, HEAD, 0, 0);
+  assert((technology_flags & ECM_TECH) != 0);
+
+  btech_admin_special_install(mech, -1, CTORSO, 1, 0);
+  assert((technology_flags & ECM_TECH) == 0);
+}
+
+static void test_case_reconciliation_tracks_configuration_destination(void) {
+  reset_state();
+  use_critical_grid = true;
+  unit_class = CLASS_MECH;
+  *section_configuration_address(HEAD) = SECTION_BREACHED;
+
+  btech_admin_special_install(mech, CASE, HEAD, 0, 0);
+  btech_admin_special_install(mech, CASE, HEAD, 1, 0);
+  assert((*section_configuration_address(HEAD) & CASE_TECH) != 0);
+
+  btech_admin_special_install(mech, -1, HEAD, 0, 0);
+  assert((*section_configuration_address(HEAD) & CASE_TECH) != 0);
+  assert(case_configuration_removals == 0);
+
+  btech_admin_special_install(mech, -1, HEAD, 1, 0);
+  assert((*section_configuration_address(HEAD) & CASE_TECH) == 0);
+  assert((*section_configuration_address(HEAD) & SECTION_BREACHED) != 0);
+  assert(case_configuration_removals == 1);
+
+  reset_state();
+  use_critical_grid = true;
+  unit_class = CLASS_VEH_GROUND;
+  btech_admin_special_install(mech, CASE, HEAD, 0, 0);
+  btech_admin_special_install(mech, CASE, CTORSO, 0, 0);
+  assert((*section_configuration_address(BSIDE) & CASE_TECH) != 0);
+
+  btech_admin_special_install(mech, -1, HEAD, 0, 0);
+  assert((*section_configuration_address(BSIDE) & CASE_TECH) != 0);
+  btech_admin_special_install(mech, -1, CTORSO, 0, 0);
+  assert((*section_configuration_address(BSIDE) & CASE_TECH) == 0);
+}
+
+static void test_removing_movement_technology_removes_related_criticals(void) {
+  reset_state();
+  use_critical_grid = true;
+  technology_flags = TRIPLE_MYOMER_TECH | MASC_TECH | ECM_TECH;
+  *critical_part_address(HEAD, 0) =
+      special_equipment_index(TRIPLE_STRENGTH_MYOMER);
+  *critical_part_address(CTORSO, 1) = special_equipment_index(MASC);
+
+  btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_PRIMARY,
+                             TRIPLE_MYOMER_TECH, false);
+  assert((technology_flags & TRIPLE_MYOMER_TECH) == 0);
+  assert((technology_flags & MASC_TECH) != 0);
+  assert((technology_flags & ECM_TECH) != 0);
+  assert(*critical_part_address(HEAD, 0) == EMPTY);
+  assert(*critical_part_address(CTORSO, 1) == special_equipment_index(MASC));
+
+  btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_PRIMARY, MASC_TECH,
+                             false);
+  assert((technology_flags & MASC_TECH) == 0);
+  assert((technology_flags & ECM_TECH) != 0);
+  assert(*critical_part_address(CTORSO, 1) == EMPTY);
+
+  *critical_part_address(LARM, 2) =
+      special_equipment_index(TRIPLE_STRENGTH_MYOMER);
+  btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_PRIMARY,
+                             TRIPLE_MYOMER_TECH, false);
+  assert(*critical_part_address(LARM, 2) ==
+         special_equipment_index(TRIPLE_STRENGTH_MYOMER));
+}
+
+static void test_removing_case_clears_criticals_and_section_flags(void) {
+  reset_state();
+  use_critical_grid = true;
+  *critical_part_address(HEAD, 0) = special_equipment_index(CASE);
+  *critical_part_address(CTORSO, 1) = special_equipment_index(CASE);
+  *critical_part_address(LARM, 2) = special_equipment_index(MASC);
+
+  btech_admin_case_remove(mech);
+
+  assert(*critical_part_address(HEAD, 0) == EMPTY);
+  assert(*critical_part_address(CTORSO, 1) == EMPTY);
+  assert(*critical_part_address(LARM, 2) == special_equipment_index(MASC));
+  assert(case_configuration_removals == NUM_SECTIONS);
 }
 
 static void invoke_setcargospace(const char *input) {
@@ -521,6 +755,12 @@ int main(void) {
   test_delinftech_uses_repair_target();
   test_addweap_validates_before_mutation();
   test_raddspecial_replaces_slot_with_fresh_state();
+  test_special_install_reconciles_every_derived_technology();
+  test_special_replacement_reconciles_old_and_new_metadata();
+  test_special_replacement_preserves_metadata_for_duplicate();
+  test_case_reconciliation_tracks_configuration_destination();
+  test_removing_movement_technology_removes_related_criticals();
+  test_removing_case_clears_criticals_and_section_flags();
   test_setcargospace_is_atomic_and_exact();
   test_setcargospace_clamps_maximum_tonnage();
   test_setcargospace_rejects_unavailable_contexts();

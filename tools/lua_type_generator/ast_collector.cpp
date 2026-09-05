@@ -363,6 +363,8 @@ public:
     const Location location = source_location(
         model_, sources_, sources_.getExpansionLoc(compound->getBeginLoc()));
     const bool registration_source = is_mux_registration_source(location.path);
+    const bool btech_registration_source =
+        is_btech_binding_source(location.path);
     std::vector<const Stmt *> statements(compound->body_begin(),
                                          compound->body_end());
     for (size_t index = 0; index < statements.size(); index++) {
@@ -375,9 +377,10 @@ public:
       const CallExpr *set = index + 1 < statements.size()
                                 ? call_statement(statements[index + 1])
                                 : nullptr;
-      if (!registration_source) {
-        if (is_btech_dynamic_registration(location.path, push, set) ||
-            is_internal_runtime_registration(location.path, push, set) ||
+      if (is_btech_dynamic_registration(location.path, push, set))
+        continue;
+      if (!registration_source && !btech_registration_source) {
+        if (is_internal_runtime_registration(location.path, push, set) ||
             is_test_traceback_callback(location.path, push, set))
           continue;
         model_.diagnose(
@@ -400,7 +403,7 @@ public:
           continue;
         }
         model_.registrations.push_back(
-            {.module = "mux",
+            {.module = btech_registration_source ? "btech" : "mux",
              .handler = declaration_usr(handler, sources_, model_),
              .leaf = leaf_literal->getString().str(),
              .location = push_location});

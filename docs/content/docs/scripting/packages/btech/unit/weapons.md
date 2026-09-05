@@ -19,13 +19,15 @@ btech.unit.weapons( unit, section )
 `DbRef|Object unit`
 : The live unit.
 
-`string|nil section`
-: An optional class-specific section name or abbreviation.
+`BtechSection|nil section`
+: An optional typed constant from [`btech.unit.sections`](../sections/) that is
+  valid for the unit.
 
 ### Returns
 
 `BtechMountedWeapon[] weapons`
-: The mounted weapons.
+: The mounted weapons. Each `section` field is a typed `BtechSection` constant
+  and can be reused as an input.
 
 ## See Also
 

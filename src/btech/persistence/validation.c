@@ -253,6 +253,10 @@ static int btech_special_load_all(sqlite3 *sqlite, BtechContext *context) {
                                        btech_special_load_autopilot_commands) <
       0)
     return -1;
+  if (btech_special_load_context_stage(
+          sqlite, context, "autopilot engagement",
+          btech_special_finalize_autopilot_engagement) < 0)
+    return -1;
   if (btech_special_load_context_stage(sqlite, context, "autopilot paths",
                                        btech_special_load_autopilot_path) < 0)
     return -1;

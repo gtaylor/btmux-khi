@@ -24,6 +24,40 @@
 #include "mechrep_api.h"
 #include "template_api.h"
 
+bool btech_admin_template_load(DbRef player, Mech *mech,
+                               const char *reference) {
+  if (!mech_template_load(player, mech, reference))
+    return false;
+  mech_events_cancel_all(mech);
+  clear_mech_from_los(mech);
+  return true;
+}
+
+bool btech_admin_template_restore(DbRef player, Mech *mech) {
+  const char *reference = mech_model_reference(mech);
+  if (reference == nullptr || *reference == '\0')
+    return false;
+  return btech_admin_template_load(player, mech, reference);
+}
+
+bool btech_admin_template_save(DbRef player, Mech *mech,
+                               const char *reference) {
+  char filename[512] = {0};
+  mech_template_registry_clear(mech_context(mech));
+  const int WRITTEN =
+      snprintf(filename, sizeof(filename), "%s/",
+               btech_context_mech_template_path(mech_context(mech)));
+  if (WRITTEN < 0 || (size_t)WRITTEN >= sizeof(filename) ||
+      !string_append_bounded(filename, sizeof(filename), reference))
+    return false;
+  return template_save(&(TemplateSaveRequest){
+             .player = player,
+             .mech = mech,
+             .reference = reference,
+             .filename = filename,
+         }) >= 0;
+}
+
 /* Selectors */
 
 /*--------------------------------------------------------------------------*/
@@ -51,9 +85,7 @@ void mechrep_rloadnew(DbRef player, void *data, char *buffer) {
   BtechContext *context = repair_command.context;
   Mech *mech = repair_command.mech;
   if (mech_parseattributes(buffer, args, 1) == 1) {
-    if (mech_template_load(player, mech, args[0])) {
-      mech_events_cancel_all(mech);
-      clear_mech_from_los(mech);
+    if (btech_admin_template_load(player, mech, args[0])) {
       mecha_notify(btech_context_evaluation(context), player,
                    "Template loaded.");
       return;
@@ -83,9 +115,7 @@ void mechrep_rrestore(DbRef player, void *data, char *buffer [[maybe_unused]]) {
                  "Sorry, I don't know what type of mech this is");
     return;
   }
-  if (mech_template_load(player, mech, c)) {
-    mech_events_cancel_all(mech);
-    clear_mech_from_los(mech);
+  if (btech_admin_template_restore(player, mech)) {
     mecha_notify(btech_context_evaluation(context), player,
                  "Restoration complete!");
     return;
@@ -99,7 +129,6 @@ void mechrep_rrestore(DbRef player, void *data, char *buffer [[maybe_unused]]) {
  */
 void mechrep_rsavetemp2(DbRef player, void *data, char *buffer) {
   char *args[1];
-  char openfile[512] = {0};
 
   MechAdminCommandContext repair_command;
   RepairCommandStatus repair_status =
@@ -112,8 +141,6 @@ void mechrep_rsavetemp2(DbRef player, void *data, char *buffer) {
   }
   BtechContext *context = repair_command.context;
   Mech *mech = repair_command.mech;
-
-  mech_template_registry_clear(mech_context(mech));
 
   // No template name given.
   if (mech_parseattributes(buffer, args, 1) != 1) {
@@ -131,22 +158,13 @@ void mechrep_rsavetemp2(DbRef player, void *data, char *buffer) {
 
   notify_printf(btech_context_evaluation(context), player, "Saving %s",
                 args[0]);
-  (void)snprintf(openfile, sizeof(openfile), "%s/",
-                 btech_context_mech_template_path(mech_context(mech)));
-  (void)string_append_bounded(openfile, sizeof(openfile), args[0]);
-
   // Just warn on overweight.
   if (mech_weight_sub(GOD, mech, -1) > (mech_tonnage(mech) * 1024))
     mecha_notify(btech_context_evaluation(context), player,
                  "Warning: Template Overweight, see @weight.");
 
   // I/O or Permissions error.
-  if (template_save(&(TemplateSaveRequest){
-          .player = player,
-          .mech = mech,
-          .reference = args[0],
-          .filename = openfile,
-      }) < 0) {
+  if (!btech_admin_template_save(player, mech, args[0])) {
     mecha_notify(btech_context_evaluation(context), player,
                  "Error saving the template file!");
     return;

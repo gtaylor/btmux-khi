@@ -74,6 +74,8 @@ void lua_btech_install_unit_bindings(lua_State *state,
                                      LuaBtechPackage *package);
 void lua_btech_install_unit_operation_bindings(lua_State *state,
                                                LuaBtechPackage *package);
+void lua_btech_install_unit_admin_bindings(lua_State *state,
+                                           LuaBtechPackage *package);
 void lua_btech_install_map_bindings(lua_State *state, LuaBtechPackage *package);
 void lua_btech_install_map_los_bindings(lua_State *state,
                                         LuaBtechPackage *package);

@@ -6,10 +6,10 @@
 #include <stddef.h>
 
 #include "btech/combat/crit_api.h"
-#include "btech/commands/mech_restrict_api.h"
 #include "btech/configuration.h"
 #include "btech/context.h"
 #include "btech/movement/mech_move_api.h"
+#include "btech/repair/mechrep_api.h"
 #include "btech/special/registry_api.h"
 #include "btech/special_objects.h"
 #include "btech/unit/mech_build_api.h"
@@ -71,10 +71,9 @@ static int lua_btech_unit_load_template(lua_State *state,
                                  reference) == nullptr)
     return lua_error_arg(state, 2, LUA_ERROR_CODE_BTECH_TEMPLATE_NOT_FOUND,
                          "template was not found");
-  if (!mech_template_load(GOD, mech, reference))
+  if (!btech_admin_template_load(GOD, mech, reference))
     return lua_error_arg(state, 2, LUA_ERROR_CODE_BTECH_TEMPLATE_INVALID,
                          "template is malformed");
-  clear_mech_from_los(mech);
   return 0;
 }
 
@@ -99,8 +98,17 @@ static int lua_btech_unit_effective_max_speed(lua_State *state,
                                               LuaBtechPackage *package) {
   Mech *mech = require_mech(state, package);
   const lua_Number SPEED =
-      (lua_Number)mech_cargo_maximum_speed(mech, mech_maximum_speed(mech));
+      (lua_Number)mech_cargo_maximum_speed(mech, mech_maximum_speed(mech)) /
+      (lua_Number)KPH_PER_MP;
   lua_pushnumber(state, SPEED);
+  return 1;
+}
+
+static int lua_btech_unit_effective_max_speed_kph(lua_State *state,
+                                                  LuaBtechPackage *package) {
+  Mech *mech = require_mech(state, package);
+  lua_pushnumber(state, (lua_Number)mech_cargo_maximum_speed(
+                            mech, mech_maximum_speed(mech)));
   return 1;
 }
 
@@ -152,9 +160,9 @@ static int lua_btech_unit_set_armor(lua_State *state,
                          "section is required and must exist on the unit");
   lua_btech_check_options(state, 3, FIELDS, sizeof(FIELDS) / sizeof(FIELDS[0]),
                           3);
-  int armor;
-  int internal;
-  int rear;
+  int armor = 0;
+  int internal = 0;
+  int rear = 0;
   const bool HAS_ARMOR = optional_patch_integer(state, 3, "armor", &armor);
   const bool HAS_INTERNAL =
       optional_patch_integer(state, 3, "internal", &internal);
@@ -162,20 +170,16 @@ static int lua_btech_unit_set_armor(lua_State *state,
   if (!HAS_ARMOR && !HAS_INTERNAL && !HAS_REAR)
     return lua_error_arg(state, 3, LUA_ERROR_CODE_ARG_INVALID,
                          "patch must contain at least one field");
-  if (HAS_ARMOR)
-    mech_section_armor_set(mech, SECTION, armor);
-  if (HAS_INTERNAL)
-    mech_section_internal_set(mech, SECTION, internal);
-  if (HAS_REAR)
-    mech_section_rear_armor_set(mech, SECTION, rear);
+  btech_admin_armor_set(mech, SECTION, HAS_ARMOR, armor, HAS_INTERNAL, internal,
+                        HAS_REAR, rear);
   return 0;
 }
 
 static int lua_btech_unit_set_max_speed(lua_State *state,
                                         LuaBtechPackage *package) {
   Mech *mech = require_mech(state, package);
-  const lua_Number SPEED = require_number(state, 2, 0, 100000, "speed");
-  mech_maximum_speed_set(mech, (float)SPEED);
+  const lua_Number SPEED = require_number(state, 2, 0, 10000, "speed");
+  btech_admin_max_speed_set(mech, (float)SPEED);
   mech_speed_correct(mech);
   return 0;
 }
@@ -275,6 +279,8 @@ static const BtechLuaNativeEntry BTECH_UNIT_OPERATION_ENTRIES[] = {
     {"piloting_check", "unit.piloting_check", lua_btech_unit_piloting_check},
     {"effective_max_speed", "unit.effective_max_speed",
      lua_btech_unit_effective_max_speed},
+    {"effective_max_speed_kph", "unit.effective_max_speed_kph",
+     lua_btech_unit_effective_max_speed_kph},
     {"section_condition", "unit.section_condition",
      lua_btech_unit_section_condition},
     {"set_armor", "unit.set_armor", lua_btech_unit_set_armor},

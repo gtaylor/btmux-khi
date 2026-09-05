@@ -1,7 +1,9 @@
 /* btech_repair_bindings.c - Native Lua bindings for btech.repair. */
 
+#include <limits.h>
 #include <lua.h>
 #include <stddef.h>
+#include <strings.h>
 #include <time.h>
 
 #include "btech/configuration.h"
@@ -9,9 +11,12 @@
 #include "btech/repair/mech_tech_commands_api.h"
 #include "btech/repair/mech_tech_damages.h"
 #include "btech/repair/mech_tech_damages_api.h"
+#include "btech/repair/mechrep_api.h"
 #include "btech/special/registry_api.h"
 #include "btech/special_objects.h"
+#include "btech/unit/mech_build_api.h"
 #include "btech/unit/mech_classification_api.h"
+#include "btech/unit/mech_equipment_api.h"
 #include "btech/unit/mech_specification_api.h"
 #include "btech/unit/mech_utils_api.h"
 #include "mux/lua/lua_error.h"
@@ -22,6 +27,23 @@
 #include "mux/server/platform.h"
 #include "mux/server/runtime_clock.h"
 #include "mux/support/checked_storage.h"
+
+/**
+ * @par LuaLS definition btech type btech.repair.immediate
+ * @code{.lua}
+ * ---@class BtechImmediateRepair
+ * ---@field operation "repair_armor"|"repair_internal"|"repair_rear_armor"|"repair_part"|"reattach"
+ * ---@field section string
+ * ---@field value? integer
+ * ---@field slot? integer
+ * @endcode
+ * @par LuaLS definition btech callable btech.repair.apply
+ * @code{.lua}
+ * ---@param unit DbRef|Object
+ * ---@param repair BtechImmediateRepair
+ * function btech_repair.apply(unit, repair) end
+ * @endcode
+ */
 
 static Mech *require_mech(lua_State *state, LuaBtechPackage *package) {
   const DbRef UNIT =
@@ -136,7 +158,64 @@ static int lua_btech_repair_technician_available_in(lua_State *state,
   return 1;
 }
 
+static int repair_section(lua_State *state, Mech *mech) {
+  const char *wanted = lua_btech_check_string_field(state, 2, "section", 64, 2);
+  const UnitSectionCatalog CATALOG = {
+      .unit_type = mech_class(mech), .movement_type = mech_movement_type(mech)};
+  for (size_t index = 0; index < unit_section_name_count(&CATALOG); index++) {
+    const char *name = unit_section_name(&CATALOG, index);
+    const ArmorSectionAbbreviation ABBREVIATION = armor_section_abbreviation(
+        &(ArmorSectionReference){.unit_class = mech_class(mech),
+                                 .movement_type = mech_movement_type(mech),
+                                 .location = (int)index});
+    if (strcasecmp(wanted, name) == 0 ||
+        strcasecmp(wanted, ABBREVIATION.text) == 0)
+      return (int)index;
+  }
+  (void)lua_error_arg(state, 2, LUA_ERROR_CODE_ARG_INVALID, "unknown section");
+  return -1;
+}
+
+static int lua_btech_repair_apply(lua_State *state, LuaBtechPackage *package) {
+  static const char *const FIELDS[] = {"operation", "section", "value", "slot"};
+  Mech *mech = require_mech(state, package);
+  lua_btech_check_options(state, 2, FIELDS, sizeof(FIELDS) / sizeof(FIELDS[0]),
+                          2);
+  const char *operation =
+      lua_btech_check_string_field(state, 2, "operation", 64, 2);
+  const int SECTION = repair_section(state, mech);
+  BtechAdminRepairKind kind;
+  int value = 0;
+  if (strcasecmp(operation, "repair_armor") == 0) {
+    kind = BTECH_ADMIN_REPAIR_ARMOR;
+    value =
+        (int)lua_btech_check_integer_field(state, 2, "value", 0, UCHAR_MAX, 2);
+  } else if (strcasecmp(operation, "repair_internal") == 0) {
+    kind = BTECH_ADMIN_REPAIR_INTERNAL;
+    value =
+        (int)lua_btech_check_integer_field(state, 2, "value", 0, UCHAR_MAX, 2);
+  } else if (strcasecmp(operation, "repair_rear_armor") == 0) {
+    kind = BTECH_ADMIN_REPAIR_REAR_ARMOR;
+    value =
+        (int)lua_btech_check_integer_field(state, 2, "value", 0, UCHAR_MAX, 2);
+  } else if (strcasecmp(operation, "repair_part") == 0) {
+    kind = BTECH_ADMIN_REPAIR_CRITICAL;
+    value = (int)lua_btech_check_integer_field(
+                state, 2, "slot", 1, mech_section_critical_count(mech, SECTION),
+                2) -
+            1;
+  } else if (strcasecmp(operation, "reattach") == 0) {
+    kind = BTECH_ADMIN_REPAIR_REATTACH;
+  } else {
+    return lua_error_arg(state, 2, LUA_ERROR_CODE_ARG_INVALID,
+                         "operation is not an immediate repair operation");
+  }
+  btech_admin_repair(mech, kind, SECTION, value);
+  return 0;
+}
+
 static const BtechLuaNativeEntry BTECH_REPAIR_ENTRIES[] = {
+    {"apply", "repair.apply", lua_btech_repair_apply},
     {"needs", "repair.needs", lua_btech_repair_needs},
     {"is_under_repair", "repair.is_under_repair",
      lua_btech_repair_is_under_repair},

@@ -211,6 +211,7 @@ set(BTECH_SOURCES
   repair/repair_job.c
   repair/repair_event_payload.c
   repair/mechrep.c
+  repair/mechrep_operations.c
   repair/mechrep_templates.c
   repair/mechrep_construction.c
   repair/mechrep_technology.c

@@ -68,6 +68,12 @@
 ---@field buildings BtechBuildingContactMode
 ---@field configured boolean
 
+---@class BtechImmediateRepair
+---@field operation "repair_armor"|"repair_internal"|"repair_rear_armor"|"repair_part"|"reattach"
+---@field section string
+---@field value? integer
+---@field slot? integer
+
 ---@class BtechCharacterValueDefinition
 ---@field code integer
 ---@field name string
@@ -175,6 +181,28 @@
 ---@field audience? "all"|"range"|"line_of_sight"
 ---@field origin? BtechPosition
 ---@field range? number
+
+---@class BtechWeaponInstall
+---@field part BtechPartRef
+---@field section string
+---@field slots integer[]
+---@field rear_facing? boolean
+---@field targeting_computer? boolean
+---@field one_shot? boolean
+---@class BtechAmmunitionConfiguration
+---@field weapon BtechPartRef
+---@field section string
+---@field slot integer
+---@field half_ton? boolean
+---@field ammunition_modes? string[]
+---@class BtechWeaponModes
+---@field fire_modes? string[]
+---@field ammunition_modes? string[]
+---@class BtechSpecialInstall
+---@field part? BtechPartRef Omit to empty the slot.
+---@field section string
+---@field slot integer
+---@field auxiliary_data? integer
 
 ---@class BtechErrorPackage
 ---@field codes BtechErrorCodes Checked native BattleTech code tree.
@@ -408,6 +436,10 @@ function btech_player.set_ui_preferences(player, preferences) end
 function btech_player.ui_preferences(player) end
 
 ---@param unit DbRef|Object
+---@param repair BtechImmediateRepair
+function btech_repair.apply(unit, repair) end
+
+---@param unit DbRef|Object
 ---@return boolean fixable
 function btech_repair.is_fixable(unit) end
 
@@ -487,6 +519,10 @@ function btech_template.technologies(reference) end
 function btech_template.weapons(reference, section) end
 
 ---@param unit DbRef|Object
+---@param technology string
+function btech_unit.add_technology(unit, technology) end
+
+---@param unit DbRef|Object
 ---@param request table
 function btech_unit.apply_damage(unit, request) end
 
@@ -504,6 +540,14 @@ function btech_unit.assigned_pilot(unit) end
 function btech_unit.battle_value(unit) end
 
 ---@param unit DbRef|Object
+---@param group "unit"|"infantry"|"all"
+function btech_unit.clear_technologies(unit, group) end
+
+---@param unit DbRef|Object
+---@param request BtechAmmunitionConfiguration
+function btech_unit.configure_ammunition(unit, request) end
+
+---@param unit DbRef|Object
 ---@param section string
 ---@return BtechCriticalSlot[] slots
 function btech_unit.critical_slots(unit, section) end
@@ -513,12 +557,24 @@ function btech_unit.critical_slots(unit, section) end
 function btech_unit.display_name(unit) end
 
 ---@param unit DbRef|Object
----@return number speed
+---@return number movement_points
 function btech_unit.effective_max_speed(unit) end
+
+---@param unit DbRef|Object
+---@return number kilometers_per_hour
+function btech_unit.effective_max_speed_kph(unit) end
 
 ---@param unit DbRef|Object
 ---@return BtechEngine engine
 function btech_unit.engine(unit) end
+
+---@param unit DbRef|Object
+---@param request BtechSpecialInstall
+function btech_unit.install_special(unit, request) end
+
+---@param unit DbRef|Object
+---@param request BtechWeaponInstall
+function btech_unit.install_weapon(unit, request) end
 
 ---@param unit DbRef|Object
 ---@return BtechPartStack[] parts
@@ -550,6 +606,25 @@ function btech_unit.preferred_id(unit) end
 function btech_unit.radio_channels(unit) end
 
 ---@param unit DbRef|Object
+---@param technology string
+function btech_unit.remove_technology(unit, technology) end
+
+---@param unit DbRef|Object
+function btech_unit.reset_critical_slots(unit) end
+
+---@param unit DbRef|Object
+---@param section string
+---@param slot integer
+function btech_unit.restock_ammunition(unit, section, slot) end
+
+---@param unit DbRef|Object
+function btech_unit.restore(unit) end
+
+---@param unit DbRef|Object
+---@param reference string
+function btech_unit.save_template(unit, reference) end
+
+---@param unit DbRef|Object
 ---@param section string
 ---@return "operational"|"destroyed"|"flooded" condition
 function btech_unit.section_condition(unit, section) end
@@ -564,24 +639,70 @@ function btech_unit.set_armor(unit, section, patch) end
 function btech_unit.set_assigned_pilot(unit, pilot) end
 
 ---@param unit DbRef|Object
+---@param space integer
+---@param maximum_tons integer
+function btech_unit.set_cargo_capacity(unit, space, maximum_tons) end
+
+---@param unit DbRef|Object
 ---@param name string|nil
 function btech_unit.set_display_name(unit, name) end
+
+---@param unit DbRef|Object
+---@param count integer
+function btech_unit.set_heat_sinks(unit, count) end
+
+---@param unit DbRef|Object
+---@param movement_points number
+function btech_unit.set_jump_speed(unit, movement_points) end
+
+---@param unit DbRef|Object
+---@param range integer
+function btech_unit.set_long_range_sensor_range(unit, range) end
 
 ---@param unit DbRef|Object
 ---@param markings string|nil
 function btech_unit.set_markings(unit, markings) end
 
 ---@param unit DbRef|Object
----@param speed number
-function btech_unit.set_max_speed(unit, speed) end
+---@param movement_points number
+function btech_unit.set_max_speed(unit, movement_points) end
+
+---@param unit DbRef|Object
+---@param movement_type string
+function btech_unit.set_movement_type(unit, movement_type) end
 
 ---@param unit DbRef|Object
 ---@param id string|nil
 function btech_unit.set_preferred_id(unit, id) end
 
 ---@param unit DbRef|Object
+---@param quality integer
+function btech_unit.set_radio_quality(unit, quality) end
+
+---@param unit DbRef|Object
+---@param range integer
+function btech_unit.set_radio_range(unit, range) end
+
+---@param unit DbRef|Object
+---@param range integer
+function btech_unit.set_scan_range(unit, range) end
+
+---@param unit DbRef|Object
+---@param range integer
+function btech_unit.set_tactical_range(unit, range) end
+
+---@param unit DbRef|Object
 ---@param tons integer
 function btech_unit.set_tonnage(unit, tons) end
+
+---@param unit DbRef|Object
+---@param unit_type string
+function btech_unit.set_unit_type(unit, unit_type) end
+
+---@param unit DbRef|Object
+---@param weapon_number integer
+---@param modes BtechWeaponModes
+function btech_unit.set_weapon_modes(unit, weapon_number, modes) end
 
 ---@param unit DbRef|Object
 ---@return BtechTechnology[] technologies

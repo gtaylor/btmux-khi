@@ -4,7 +4,7 @@ type: docs
 toc_hide: false
 ---
 
-Updates selected armor fields for one live unit section.
+Configures selected armor fields for one live unit section.
 
 ## Function
 
@@ -32,6 +32,7 @@ None.
 ## Notes
 
 Every supplied value must be an integer from 0 through 255.
+Each supplied value becomes both the section's current and original value.
 
 ## See Also
 

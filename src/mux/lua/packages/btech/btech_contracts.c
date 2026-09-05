@@ -596,8 +596,14 @@
  * @par LuaLS definition btech callable btech.unit.effective_max_speed
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@return number speed
+ * ---@return number movement_points
  * function btech_unit.effective_max_speed(unit) end
+ * @endcode
+ * @par LuaLS definition btech callable btech.unit.effective_max_speed_kph
+ * @code{.lua}
+ * ---@param unit DbRef|Object
+ * ---@return number kilometers_per_hour
+ * function btech_unit.effective_max_speed_kph(unit) end
  * @endcode
  * @par LuaLS definition btech callable btech.unit.section_condition
  * @code{.lua}
@@ -628,8 +634,8 @@
  * @par LuaLS definition btech callable btech.unit.set_max_speed
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@param speed number
- * function btech_unit.set_max_speed(unit, speed) end
+ * ---@param movement_points number
+ * function btech_unit.set_max_speed(unit, movement_points) end
  * @endcode
  * @par LuaLS definition btech callable btech.unit.set_tonnage
  * @code{.lua}

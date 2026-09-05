@@ -32,6 +32,71 @@
 #include "special_object.h"
 #include "template_api.h"
 
+void btech_admin_criticals_reset(Mech *mech) {
+  for (int section = 0; section < NUM_SECTIONS; section++)
+    fill_default_criticals(mech, section);
+}
+
+void btech_admin_radio_quality_set(Mech *mech, int quality) {
+  mech_radio_quality_set(mech, quality);
+  mech_radio_configuration_set(mech, generic_radio_type(quality, 0));
+  mech_radio_range_set(
+      mech,
+      clamp_float_to_int(DEFAULT_RADIORANGE * generic_radio_multiplier(mech)));
+}
+
+void btech_admin_unit_type_set(Mech *mech, int unit_type) {
+  mech_class_set(mech, (UnitClass)unit_type);
+  switch (unit_type) {
+  case CLASS_MECH:
+  case CLASS_BSUIT:
+    mech_movement_type_set(mech, MOVE_BIPED);
+    break;
+  case CLASS_VTOL:
+    mech_movement_type_set(mech, MOVE_VTOL);
+    break;
+  case CLASS_AERO:
+  case CLASS_DS:
+  case CLASS_SPHEROID_DS:
+    mech_movement_type_set(mech, MOVE_FLY);
+    break;
+  default:
+    break;
+  }
+}
+
+void btech_admin_movement_type_set(Mech *mech, int movement_type) {
+  mech_movement_type_set(mech, (MechMovementType)movement_type);
+}
+
+void btech_admin_max_speed_set(Mech *mech, float movement_points) {
+  mech_maximum_speed_set(mech, movement_points * KPH_PER_MP);
+}
+
+void btech_admin_jump_speed_set(Mech *mech, float movement_points) {
+  mech_jump_speed_set(mech, movement_points * KPH_PER_MP);
+}
+
+void btech_admin_heat_sinks_set(Mech *mech, int count) {
+  mech_heat_sink_count_set(mech, count);
+}
+
+void btech_admin_long_range_set(Mech *mech, int range) {
+  mech_long_range_sensor_range_set(mech, range);
+}
+
+void btech_admin_tactical_range_set(Mech *mech, int range) {
+  mech_tactical_range_set(mech, range);
+}
+
+void btech_admin_scan_range_set(Mech *mech, int range) {
+  mech_scanner_range_set(mech, range);
+}
+
+void btech_admin_radio_range_set(Mech *mech, int range) {
+  mech_radio_range_set(mech, range);
+}
+
 /* Selectors */
 
 /*--------------------------------------------------------------------------*/
@@ -44,8 +109,6 @@
 
 void mechrep_rresetcrits(DbRef player, void *data,
                          char *buffer [[maybe_unused]]) {
-  int i;
-
   MechAdminCommandContext repair_command;
   RepairCommandStatus repair_status =
       mech_admin_command_context_initialize(player, data, &repair_command);
@@ -59,8 +122,7 @@ void mechrep_rresetcrits(DbRef player, void *data,
   Mech *mech = repair_command.mech;
   mecha_notify(btech_context_evaluation(context), player,
                "Default criticals set!");
-  for (i = 0; i < NUM_SECTIONS; i++)
-    fill_default_criticals(mech, i);
+  btech_admin_criticals_reset(mech);
 }
 
 void mechrep_rdisplaysection(DbRef player, void *data, char *buffer) {
@@ -125,15 +187,11 @@ void mechrep_rsetradio(DbRef player, void *data, char *buffer) {
   i = bounded(1, i, 5);
   notify_printf(btech_context_evaluation(context), player,
                 "Radio level set to %d.", i);
-  mech_radio_quality_set(mech, i);
-  mech_radio_configuration_set(mech, generic_radio_type(i, 0));
+  btech_admin_radio_quality_set(mech, i);
   notify_printf(btech_context_evaluation(context), player,
                 "Number of freqs: %d  Extra stuff: %d",
                 mech_radio_configuration(mech) % 16,
                 (mech_radio_configuration(mech) / 16) * 16);
-  mech_radio_range_set(
-      mech,
-      clamp_float_to_int(DEFAULT_RADIORANGE * generic_radio_multiplier(mech)));
   notify_printf(btech_context_evaluation(context), player,
                 "Radio range set to %d.", mech_radio_range(mech));
 }
@@ -161,51 +219,45 @@ void mechrep_rsettype(DbRef player, void *data, char *buffer) {
       *(char **)checked_storage_at((void *)args, 1, sizeof(*args), 0);
   switch (ascii_to_upper(*movement)) {
   case 'M':
-    mech_class_set(mech, CLASS_MECH);
-    mech_movement_type_set(mech, MOVE_BIPED);
+    btech_admin_unit_type_set(mech, CLASS_MECH);
     mecha_notify(btech_context_evaluation(context), player, "Type set to MECH");
     break;
   case 'Q':
-    mech_class_set(mech, CLASS_MECH);
-    mech_movement_type_set(mech, MOVE_QUAD);
+    btech_admin_unit_type_set(mech, CLASS_MECH);
+    btech_admin_movement_type_set(mech, MOVE_QUAD);
     mecha_notify(btech_context_evaluation(context), player, "Type set to QUAD");
     break;
   case 'G':
-    mech_class_set(mech, CLASS_VEH_GROUND);
+    btech_admin_unit_type_set(mech, CLASS_VEH_GROUND);
     mecha_notify(btech_context_evaluation(context), player,
                  "Type set to VEHICLE");
     break;
   case 'V':
-    mech_class_set(mech, CLASS_VTOL);
-    mech_movement_type_set(mech, MOVE_VTOL);
+    btech_admin_unit_type_set(mech, CLASS_VTOL);
     mecha_notify(btech_context_evaluation(context), player, "Type set to VTOL");
     break;
   case 'N':
-    mech_class_set(mech, CLASS_VEH_NAVAL);
+    btech_admin_unit_type_set(mech, CLASS_VEH_NAVAL);
     mecha_notify(btech_context_evaluation(context), player,
                  "Type set to NAVAL");
     break;
   case 'A':
-    mech_class_set(mech, CLASS_AERO);
-    mech_movement_type_set(mech, MOVE_FLY);
+    btech_admin_unit_type_set(mech, CLASS_AERO);
     mecha_notify(btech_context_evaluation(context), player,
                  "Type set to AeroSpace");
     break;
   case 'D':
-    mech_class_set(mech, CLASS_DS);
-    mech_movement_type_set(mech, MOVE_FLY);
+    btech_admin_unit_type_set(mech, CLASS_DS);
     mecha_notify(btech_context_evaluation(context), player,
                  "Type set to DropShip");
     break;
   case 'S':
-    mech_class_set(mech, CLASS_SPHEROID_DS);
-    mech_movement_type_set(mech, MOVE_FLY);
+    btech_admin_unit_type_set(mech, CLASS_SPHEROID_DS);
     mecha_notify(btech_context_evaluation(context), player,
                  "Type set to SpheroidDropship");
     break;
   case 'B':
-    mech_class_set(mech, CLASS_BSUIT);
-    mech_movement_type_set(mech, MOVE_BIPED);
+    btech_admin_unit_type_set(mech, CLASS_BSUIT);
     mecha_notify(btech_context_evaluation(context), player,
                  "Type set to BattleSuit");
     break;
@@ -285,7 +337,7 @@ void mechrep_rsetspeed(DbRef player, void *data, char *buffer) {
                   "Invalid value for SetMaxspeed!");
     return;
   }
-  mech_maximum_speed_set(mech, value);
+  btech_admin_max_speed_set(mech, value / KPH_PER_MP);
   notify_repair_float(context, player, "Maxspeed", mech_maximum_speed(mech));
 }
 
@@ -310,7 +362,7 @@ void mechrep_rsetjumpspeed(DbRef player, void *data, char *buffer) {
                   "Invalid value for SetJumpspeed!");
     return;
   }
-  mech_jump_speed_set(mech, value);
+  btech_admin_jump_speed_set(mech, value / KPH_PER_MP);
   notify_repair_float(context, player, "Jumpspeed", mech_jump_speed(mech));
 }
 
@@ -332,7 +384,7 @@ void mechrep_rsetheatsinks(DbRef player, void *data, char *buffer) {
   if (!validate_repair_int_range(context, player, "Heatsinks", value, 0,
                                  CHAR_MAX))
     return;
-  mech_heat_sink_count_set(mech, value);
+  btech_admin_heat_sinks_set(mech, value);
   notify_repair_int(context, player, "Heatsinks", mech_heat_sink_count(mech));
 }
 
@@ -354,7 +406,7 @@ void mechrep_rsetlrsrange(DbRef player, void *data, char *buffer) {
   if (!validate_repair_int_range(context, player, "LRSrange", value, 0,
                                  CHAR_MAX))
     return;
-  mech_long_range_sensor_range_set(mech, value);
+  btech_admin_long_range_set(mech, value);
   notify_repair_int(context, player, "LRSrange",
                     mech_long_range_sensor_range(mech));
 }
@@ -377,7 +429,7 @@ void mechrep_rsettacrange(DbRef player, void *data, char *buffer) {
   if (!validate_repair_int_range(context, player, "TACrange", value, 0,
                                  CHAR_MAX))
     return;
-  mech_tactical_range_set(mech, value);
+  btech_admin_tactical_range_set(mech, value);
   notify_repair_int(context, player, "TACrange", mech_tactical_range(mech));
 }
 
@@ -399,7 +451,7 @@ void mechrep_rsetscanrange(DbRef player, void *data, char *buffer) {
   if (!validate_repair_int_range(context, player, "SCANrange", value, 0,
                                  CHAR_MAX))
     return;
-  mech_scanner_range_set(mech, value);
+  btech_admin_scan_range_set(mech, value);
   notify_repair_int(context, player, "SCANrange", mech_scanner_range(mech));
 }
 
@@ -421,7 +473,7 @@ void mechrep_rsetradiorange(DbRef player, void *data, char *buffer) {
   if (!validate_repair_int_range(context, player, "RADIOrange", value, 0,
                                  SHRT_MAX))
     return;
-  mech_radio_range_set(mech, value);
+  btech_admin_radio_range_set(mech, value);
   notify_repair_int(context, player, "RADIOrange", mech_radio_range(mech));
 }
 
@@ -469,65 +521,65 @@ void mechrep_rsetmove(DbRef player, void *data, char *buffer) {
       *(char **)checked_storage_at((void *)args, 1, sizeof(*args), 0);
   switch (ascii_to_upper(*movement)) {
   case 'T':
-    mech_movement_type_set(mech, MOVE_TRACK);
+    btech_admin_movement_type_set(mech, MOVE_TRACK);
     mecha_notify(btech_context_evaluation(context), player,
                  "Movement set to TRACKED");
     break;
   case 'W':
-    mech_movement_type_set(mech, MOVE_WHEEL);
+    btech_admin_movement_type_set(mech, MOVE_WHEEL);
     mecha_notify(btech_context_evaluation(context), player,
                  "Movement set to WHEELED");
     break;
   case 'H':
     switch (ascii_to_upper(*checked_string_suffix(movement, 1))) {
     case 'O':
-      mech_movement_type_set(mech, MOVE_HOVER);
+      btech_admin_movement_type_set(mech, MOVE_HOVER);
       mecha_notify(btech_context_evaluation(context), player,
                    "Movement set to HOVER");
       break;
     case 'U':
-      mech_movement_type_set(mech, MOVE_HULL);
+      btech_admin_movement_type_set(mech, MOVE_HULL);
       mecha_notify(btech_context_evaluation(context), player,
                    "Movement set to HULL");
       break;
     }
     break;
   case 'V':
-    mech_movement_type_set(mech, MOVE_VTOL);
+    btech_admin_movement_type_set(mech, MOVE_VTOL);
     mecha_notify(btech_context_evaluation(context), player,
                  "Movement set to VTOL");
     break;
   case 'Q':
-    mech_movement_type_set(mech, MOVE_QUAD);
+    btech_admin_movement_type_set(mech, MOVE_QUAD);
     mecha_notify(btech_context_evaluation(context), player,
                  "Movement set to QUAD");
     break;
   case 'B':
-    mech_movement_type_set(mech, MOVE_BIPED);
+    btech_admin_movement_type_set(mech, MOVE_BIPED);
     mecha_notify(btech_context_evaluation(context), player,
                  "Movement set to BIPED");
     break;
   case 'S':
-    mech_movement_type_set(mech, MOVE_SUB);
+    btech_admin_movement_type_set(mech, MOVE_SUB);
     mecha_notify(btech_context_evaluation(context), player,
                  "Movement set to SUB");
     break;
   case 'F':
     switch (ascii_to_upper(*checked_string_suffix(movement, 1))) {
     case 'O':
-      mech_movement_type_set(mech, MOVE_FOIL);
+      btech_admin_movement_type_set(mech, MOVE_FOIL);
       mecha_notify(btech_context_evaluation(context), player,
                    "Movement set to FOIL");
       break;
     case 'L':
-      mech_movement_type_set(mech, MOVE_FLY);
+      btech_admin_movement_type_set(mech, MOVE_FLY);
       mecha_notify(btech_context_evaluation(context), player,
                    "Movement set to FLY");
       break;
     }
     break;
   case 'N':
-    mech_movement_type_set(mech, MOVE_NONE);
+    btech_admin_movement_type_set(mech, MOVE_NONE);
     mecha_notify(btech_context_evaluation(context), player,
                  "Movement set to NONE");
     break;

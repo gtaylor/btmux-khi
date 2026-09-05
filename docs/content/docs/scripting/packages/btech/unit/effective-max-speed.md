@@ -21,8 +21,10 @@ btech.unit.effective_max_speed( unit )
 
 ### Returns
 
-`number speed`
-: The effective maximum speed.
+`number movement_points`
+: The effective maximum speed in movement points.
+
+Use `effective_max_speed_kph` when kilometers per hour are required.
 
 ## See Also
 

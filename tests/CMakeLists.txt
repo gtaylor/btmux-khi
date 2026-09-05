@@ -643,6 +643,7 @@ set_tests_properties(btech_repair_timing PROPERTIES
 add_executable(btech_mechrep_admin_test
   ${CMAKE_SOURCE_DIR}/tests/unit/btech/systems/btech_mechrep_admin.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_construction.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_operations.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_technology.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/stringutil.c)
@@ -675,6 +676,7 @@ set_tests_properties(btech_mech_admin_command PROPERTIES
 add_executable(btech_mechrep_armor_setter_test
   ${CMAKE_SOURCE_DIR}/tests/unit/btech/systems/btech_mechrep_armor_setter.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_construction.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_operations.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/stringutil.c)
 target_compile_options(btech_mechrep_armor_setter_test PRIVATE
@@ -694,6 +696,7 @@ set_tests_properties(btech_mechrep_armor_setter PROPERTIES
 add_executable(btech_mechrep_repair_command_test
   ${CMAKE_SOURCE_DIR}/tests/unit/btech/systems/btech_mechrep_repair_command.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_construction.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_operations.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/stringutil.c)
 target_compile_options(btech_mechrep_repair_command_test PRIVATE

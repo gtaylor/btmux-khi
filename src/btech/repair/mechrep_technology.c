@@ -116,24 +116,7 @@ void mechrep_raddspecial(DbRef player, void *data, char *buffer) {
   } else {
     newdata = 0;
   }
-  mech_critical_configure(&(CriticalSlotConfiguration){
-      .mech = mech,
-      .slot = {.section = index, .critical = subsect},
-      .part_type = itemcode < 0 ? EMPTY : special_equipment_index(itemcode),
-      .data = newdata,
-  });
-  mech_critical_damage_flags_set(mech, index, subsect, 0);
-  mech_critical_temporary_failure_set(&(CriticalSlotFailureSet){
-      .mech = mech,
-      .slot = {.section = index, .critical = subsect},
-      .failure = 0,
-  });
-  mech_critical_brand_set(&(CriticalSlotBrandSet){
-      .mech = mech,
-      .slot = {.section = index, .critical = subsect},
-      .brand = 0,
-  });
-  mech_critical_desired_ammo_section_set(mech, index, subsect, -1);
+  btech_admin_special_install(mech, itemcode, index, subsect, newdata);
   switch (itemcode) {
   case CASE:
     mech_section_configuration_add(
@@ -212,8 +195,6 @@ void mechrep_raddspecial(DbRef player, void *data, char *buffer) {
     break;
   case SPLIT_CRIT_LEFT:
   case SPLIT_CRIT_RIGHT:
-    mech_critical_data_set(mech, index, subsect,
-                           mech_critical_data(mech, index, subsect) - 1);
     break;
   }
   armor_string_from_index(index, location, mech_class(mech),
@@ -469,11 +450,8 @@ void mechrep_rdeltech(DbRef player, void *data, char *buffer) {
   /* Check to see if user specified 'ALL' */
   if (strcasecmp(buffer, "all") == 0) {
 
-    remove_case_technology(mech);
-    remove_critical_type(mech, special_equipment_index(TRIPLE_STRENGTH_MYOMER));
-    remove_critical_type(mech, special_equipment_index(MASC));
-    mech_technology_flags_set(mech, 0);
-    mech_technology_flags_secondary_set(mech, 0);
+    btech_admin_technologies_clear(mech, BTECH_ADMIN_TECHNOLOGY_PRIMARY);
+    btech_admin_technologies_clear(mech, BTECH_ADMIN_TECHNOLOGY_SECONDARY);
     mecha_notify(btech_context_evaluation(context), player,
                  "All Advanced Technology Removed");
     return;
@@ -497,13 +475,14 @@ void mechrep_rdeltech(DbRef player, void *data, char *buffer) {
         remove_critical_type(mech, special_equipment_index(MASC));
     }
 
-    mech_technology_flags_remove(mech, nv);
+    btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_PRIMARY, nv, false);
     notify_printf(btech_context_evaluation(context), player,
                   "%s Technology Removed", buffer);
 
   } else {
 
-    mech_technology_flags_secondary_remove(mech, nv2);
+    btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_SECONDARY, nv2,
+                               false);
     notify_printf(btech_context_evaluation(context), player,
                   "%s Technology Removed", buffer);
   }
@@ -556,7 +535,7 @@ void mechrep_raddtech(DbRef player, void *data, char *buffer) {
   }
 
   if (nv > 0) {
-    mech_technology_flags_add(mech, nv);
+    btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_PRIMARY, nv, true);
     notify_printf(
         btech_context_evaluation(context), player, "Set: %s",
         template_bit_string_build(&(TemplateBitStringRequest){
@@ -568,7 +547,8 @@ void mechrep_raddtech(DbRef player, void *data, char *buffer) {
             .delimiter = ' ',
             .buffer = (char[BTECH_TEXT_CAPACITY]){0}}));
   } else {
-    mech_technology_flags_secondary_add(mech, nv2);
+    btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_SECONDARY, nv2,
+                               true);
     notify_printf(
         btech_context_evaluation(context), player, "Set: %s",
         template_bit_string_build(&(TemplateBitStringRequest){
@@ -653,7 +633,7 @@ void mechrep_raddinftech(DbRef player, void *data, char *buffer) {
   }
 
   if (nv > 0) {
-    mech_infantry_technology_flags_add(mech, nv);
+    btech_admin_technology_set(mech, BTECH_ADMIN_TECHNOLOGY_INFANTRY, nv, true);
     notify_printf(
         btech_context_evaluation(context), player, "Set: %s",
         template_bit_string_build(&(TemplateBitStringRequest){
@@ -714,14 +694,12 @@ void mechrep_setcargospace(DbRef player, void *data, char *buffer) {
     return;
   }
 
-  cargo *= 50;
   max = (bounded(1, max, 100));
-  mech_cargo_space_set(mech, cargo);
-  mech_carrier_maximum_tonnage_set(mech, max);
+  btech_admin_cargo_set(mech, cargo, max);
 
   notify_printf(btech_context_evaluation(context), player,
                 "%3.2f cargospace and %d tons of maxton space set.",
-                (double)cargo / 100.0, max);
+                (double)(cargo * 50) / 100.0, max);
 }
 
 struct MechReferenceCache {

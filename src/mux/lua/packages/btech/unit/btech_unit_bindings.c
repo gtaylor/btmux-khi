@@ -722,4 +722,5 @@ void lua_btech_install_unit_bindings(lua_State *state,
       state, package, "unit", BTECH_UNIT_NATIVE_ENTRIES,
       sizeof(BTECH_UNIT_NATIVE_ENTRIES) / sizeof(BTECH_UNIT_NATIVE_ENTRIES[0]));
   lua_btech_install_unit_operation_bindings(state, package);
+  lua_btech_install_unit_admin_bindings(state, package);
 }

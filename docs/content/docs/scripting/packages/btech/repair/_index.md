@@ -13,6 +13,7 @@ sidebar_root_for: self
 
 | Function | Description |
 | --- | --- |
+| [`apply`](apply/) | Performs an immediate administrative repair. |
 | [`is_fixable`](is-fixable/) | Tests whether a live unit can be repaired. |
 | [`is_under_repair`](is-under-repair/) | Tests whether a live unit has an active repair event. |
 | [`needs`](needs/) | Lists the repairs needed by a live unit. |

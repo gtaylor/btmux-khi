@@ -20,9 +20,21 @@ sidebar_root_for: self
 | [`critical_slots`](critical-slots/) | Lists a live unit section's critical slots. |
 | [`display_name`](display-name/) | Returns a live unit's display-name override. |
 | [`effective_max_speed`](effective-max-speed/) | Returns a live unit's effective maximum speed. |
+| [`effective_max_speed_kph`](administration/#effective_max_speed_kph) | Returns effective maximum speed in kilometers per hour. |
 | [`engine`](engine/) | Returns a live unit's engine configuration. |
 | [`installed_parts`](installed-parts/) | Lists parts represented by non-destroyed critical slots on a live unit. |
 | [`load_template`](load-template/) | Loads a unit template into a live unit. |
+| [`restore`](administration/#restore) | Restores a live unit from its model template. |
+| [`save_template`](administration/#save_template) | Saves a live unit as a template. |
+| [`install_weapon`](administration/#install_weapon) | Installs a weapon into critical slots. |
+| [`install_special`](administration/#install_special) | Configures a special-equipment critical slot. |
+| [`reset_critical_slots`](administration/#reset_critical_slots) | Restores default critical slots. |
+| [`configure_ammunition`](administration/#configure_ammunition) | Configures an ammunition bin. |
+| [`restock_ammunition`](administration/#restock_ammunition) | Refills an ammunition bin. |
+| [`set_weapon_modes`](administration/#set_weapon_modes) | Replaces a mounted weapon's modes. |
+| [`add_technology`](administration/#add_technology) | Adds a configured technology. |
+| [`remove_technology`](administration/#remove_technology) | Removes a configured technology. |
+| [`clear_technologies`](administration/#clear_technologies) | Clears configured technology groups. |
 | [`markings`](markings/) | Returns a live unit's markings. |
 | [`payload`](payload/) | Lists weapons and ammunition represented by non-destroyed critical slots on a live unit. |
 | [`piloting_check`](piloting-check/) | Makes a piloting check and applies a failed result. |
@@ -34,6 +46,16 @@ sidebar_root_for: self
 | [`set_display_name`](set-display-name/) | Sets or clears a live unit's display-name override. |
 | [`set_markings`](set-markings/) | Sets or clears a live unit's markings. |
 | [`set_max_speed`](set-max-speed/) | Sets a live unit's maximum speed. |
+| [`set_jump_speed`](administration/#set_jump_speed) | Sets jump speed in movement points. |
+| [`set_unit_type`](administration/#set_unit_type) | Sets the unit type. |
+| [`set_movement_type`](administration/#set_movement_type) | Sets the movement type. |
+| [`set_heat_sinks`](administration/#set_heat_sinks) | Sets heat sink count. |
+| [`set_long_range_sensor_range`](administration/#sensor-ranges) | Sets long-range sensor range. |
+| [`set_tactical_range`](administration/#sensor-ranges) | Sets tactical sensor range. |
+| [`set_scan_range`](administration/#sensor-ranges) | Sets scan range. |
+| [`set_radio_quality`](administration/#radio) | Sets radio quality and derived configuration. |
+| [`set_radio_range`](administration/#radio) | Sets radio range. |
+| [`set_cargo_capacity`](administration/#set_cargo_capacity) | Sets cargo capacity. |
 | [`set_preferred_id`](set-preferred-id/) | Sets or clears a live unit's preferred tactical ID. |
 | [`set_tonnage`](set-tonnage/) | Sets a live unit's tonnage and original weight. |
 | [`technologies`](technologies/) | Lists a live unit's configured and inferred technologies. |

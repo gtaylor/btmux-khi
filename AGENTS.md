@@ -46,6 +46,7 @@ When writing C code, use the following naming conventions:
 - All C functions that are bound to Lua packages should include Doxygen-style comments to help the stub generator agent out.
 - Run `just update-lua-types` any time you add, remove, or change inputs or outputs for C functions that are bound to Lua packages.
 - Update the reference docs in docs/content/docs/scripting/packages when you make changes to the exported Lua packages.
+- Avoid magic strings in parameters. Instead export and accept constants. See the mux.world.access package as an example.
 
 ## Testing Practices
 

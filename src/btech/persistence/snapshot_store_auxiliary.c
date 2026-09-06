@@ -162,6 +162,7 @@ static void store_autopilot(BtechObjectStoreContext *context, DbRef object_id,
       autopilot->b_dan,
       autopilot->w_dan,
       autopilot->last_upd,
+      autopilot->engaged ? 1 : 0,
   };
   if (btech_special_bind_int(context->autopilot, 1, object_id) < 0)
     context->result = -1;

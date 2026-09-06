@@ -11,7 +11,7 @@ Sets a live unit's maximum speed.
 ### Synopsis
 
 ```lua
-btech.unit.set_max_speed( unit, speed )
+btech.unit.set_max_speed( unit, movement_points )
 ```
 
 ### Arguments
@@ -19,8 +19,8 @@ btech.unit.set_max_speed( unit, speed )
 `DbRef|Object unit`
 : The live unit.
 
-`number speed`
-: The new maximum speed, from 0 to 100000.
+`number movement_points`
+: The new maximum speed in movement points, from 0 to 10000.
 
 ### Returns
 

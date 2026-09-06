@@ -128,7 +128,8 @@ static int lua_btech_template_payload(lua_State *state,
 static int lua_btech_template_armor(lua_State *state,
                                     LuaBtechPackage *package) {
   Mech *mech = require_template(state, package, 1);
-  lua_btech_push_armor(state, mech, lua_btech_optional_section(state, mech, 2));
+  lua_btech_push_armor(state, package, mech,
+                       lua_btech_optional_section(state, package, mech, 2));
   return 1;
 }
 
@@ -142,26 +143,27 @@ static int lua_btech_template_installed_parts(lua_State *state,
 static int lua_btech_template_critical_slots(lua_State *state,
                                              LuaBtechPackage *package) {
   Mech *mech = require_template(state, package, 1);
-  const int SECTION = lua_btech_optional_section(state, mech, 2);
+  const int SECTION = lua_btech_optional_section(state, package, mech, 2);
   if (SECTION < 0)
     return lua_error_arg(state, 2, LUA_ERROR_CODE_ARG_INVALID,
                          "section is required");
-  lua_btech_push_critical_slots(state, lua_btech_context(package), mech,
-                                SECTION);
+  lua_btech_push_critical_slots(state, package, lua_btech_context(package),
+                                mech, SECTION);
   return 1;
 }
 
 static int lua_btech_template_weapons(lua_State *state,
                                       LuaBtechPackage *package) {
   Mech *mech = require_template(state, package, 1);
-  lua_btech_push_weapons(state, lua_btech_context(package), mech,
-                         lua_btech_optional_section(state, mech, 2));
+  lua_btech_push_weapons(state, package, lua_btech_context(package), mech,
+                         lua_btech_optional_section(state, package, mech, 2));
   return 1;
 }
 
 static int lua_btech_template_technologies(lua_State *state,
                                            LuaBtechPackage *package) {
-  lua_btech_push_technologies(state, require_template(state, package, 1));
+  lua_btech_push_technologies(state, package,
+                              require_template(state, package, 1));
   return 1;
 }
 
@@ -192,7 +194,7 @@ static int lua_btech_template_show_critical_status(lua_State *state,
                                                    LuaBtechPackage *package) {
   Mech *mech = require_template(state, package, 1);
   const DbRef PLAYER = require_player(state, package, 2);
-  const int SECTION = lua_btech_optional_section(state, mech, 3);
+  const int SECTION = lua_btech_optional_section(state, package, mech, 3);
   if (SECTION < 0)
     return lua_error_arg(state, 3, LUA_ERROR_CODE_ARG_INVALID,
                          "section is required");

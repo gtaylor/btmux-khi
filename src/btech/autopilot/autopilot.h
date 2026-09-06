@@ -139,6 +139,9 @@ typedef struct Autopilot {
   /* Special AI flags */
   unsigned short flags;
 
+  /* Authoritative administrative state; events and flags are consequences. */
+  bool engaged;
+
   /* The autopilot's command list */
   DoublyLinkedList *commands;
 
@@ -368,6 +371,7 @@ void auto_command_chasetarget(Autopilot *autopilot);
 void auto_command_embark(Autopilot *autopilot, Mech *mech);
 void auto_command_udisembark(Mech *mech);
 void auto_com_event(MuxEvent *muxevent);
+bool autopilot_command_dispatch_enabled(const Autopilot *autopilot);
 void auto_astar_goto_event(MuxEvent *muxevent);
 void auto_astar_follow_event(MuxEvent *muxevent);
 void auto_dumbgoto_event(MuxEvent *muxevent);

@@ -7,8 +7,10 @@
 #include "autopilot.h"
 #include "autopilot_argument_list_api.h"
 #include "autopilot_commands_api.h"
+#include "autopilot_control_api.h"
 #include "autopilot_order_queue_api.h"
 #include "autopilot_weapon_profile_api.h"
+#include "btech/autopilot.h"
 #include "btech/context.h"
 #include "btech_channel.h"
 #include "btech_event.h"
@@ -127,21 +129,40 @@ void auto_delcommand(DbRef player, void *data, const char *buffer) {
     return;
   }
 
-  /*! \todo {Add in check so they don't accidently remove a running command
-   * without disengaging first} */
-
   /* Now remove the node(s) */
   if (!remove_all_commands) {
 
     /* Remove the node at pos */
-    (void)autopilot_order_remove(autopilot, (size_t)p - 1);
+    const BtechAutopilotResult RESULT =
+        autopilot_control_remove(autopilot, (size_t)p);
+    if (RESULT == BTECH_AUTOPILOT_ACTIVE_ORDER) {
+      mecha_notify(
+          btech_context_evaluation(autopilot->xcode.context), player,
+          "Disengage the autopilot before removing its active command.");
+      return;
+    }
+    if (RESULT != BTECH_AUTOPILOT_OK) {
+      mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
+                   "Unable to remove the autopilot command.");
+      return;
+    }
 
     notify_printf(btech_context_evaluation(autopilot->xcode.context), player,
                   "Command #%d Successfully Removed\n", p);
 
   } else {
 
-    autopilot_order_clear(autopilot);
+    const BtechAutopilotResult RESULT = autopilot_control_clear(autopilot);
+    if (RESULT == BTECH_AUTOPILOT_ACTIVE_ORDER) {
+      mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
+                   "Disengage the autopilot before clearing its commands.");
+      return;
+    }
+    if (RESULT != BTECH_AUTOPILOT_OK) {
+      mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
+                   "Unable to clear the autopilot commands.");
+      return;
+    }
 
     mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
                  "All the commands have been removed.\n");
@@ -226,12 +247,12 @@ void auto_addcommand(DbRef player, void *data, char *buffer) {
     autopilot_argument_list_set(&args, 0, strdup(definition->name));
   }
 
-  const AutopilotOrderResult RESULT =
-      autopilot_order_enqueue(autopilot, definition, &args);
+  const BtechAutopilotResult RESULT =
+      autopilot_control_enqueue(autopilot, definition, &args);
   autopilot_argument_list_destroy(&args);
-  if (RESULT != AUTOPILOT_ORDER_OK) {
+  if (RESULT != BTECH_AUTOPILOT_OK) {
     mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
-                 RESULT == AUTOPILOT_ORDER_FULL
+                 RESULT == BTECH_AUTOPILOT_QUEUE_FULL
                      ? "The autopilot command queue is full."
                      : "Unable to add the autopilot command.");
     return;
@@ -336,27 +357,6 @@ void auto_eventstats(DbRef player, void *data, char *buffer [[maybe_unused]]) {
 /*
  * Turn the autopilot on
  */
-static int auto_pilot_on(Autopilot *autopilot) {
-
-  int i;
-  int j;
-  int count = 0;
-
-  for (i = FIRST_AUTO_EVENT; i <= LAST_AUTO_EVENT; i++) {
-    j = mux_event_count_type_data(autopilot->xcode.context->events, i,
-                                  (void *)autopilot);
-    if (j)
-      count += j;
-  }
-
-  if (!count) {
-    return autopilot->flags &
-           (AUTOPILOT_AUTOGUN | AUTOPILOT_GUNZOMBIE | AUTOPILOT_PILZOMBIE);
-  }
-
-  return count;
-}
-
 /*
  * Stop whatever the autopilot is doing
  */
@@ -366,6 +366,7 @@ void auto_stop_pilot(Autopilot *autopilot) {
 
   autopilot->flags &=
       ~(AUTOPILOT_AUTOGUN | AUTOPILOT_GUNZOMBIE | AUTOPILOT_PILZOMBIE);
+  autopilot->engaged = false;
 
   for (i = FIRST_AUTO_EVENT; i <= LAST_AUTO_EVENT; i++)
     mux_event_remove_type_data(autopilot->xcode.context->events, i,
@@ -399,6 +400,7 @@ void auto_init(Autopilot *autopilot, Mech *mech [[maybe_unused]]) {
   autopilot->auto_fweight = 55;
   autopilot->speed = 100; /* Reset to full speed */
   autopilot->flags = 0;
+  autopilot->engaged = false;
 
   /* Target Stuff */
   autopilot->target = -2;
@@ -420,42 +422,31 @@ void auto_engage(DbRef player, void *data,
                  const char *buffer [[maybe_unused]]) {
 
   Autopilot *autopilot = (Autopilot *)data;
-  Mech *mech;
-
-  autopilot->mymech = mech = btech_context_get_mech(
-      autopilot->xcode.context,
-      (autopilot->mymechnum = game_object_location(
-           autopilot->xcode.context->database, autopilot->mynum)));
-  if (!autopilot) {
-    mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
-                 "Internal error! - Bad AI object!");
-    return;
-  }
-  if (!mech) {
+  const BtechAutopilotResult RESULT = autopilot_control_engage(autopilot);
+  if (RESULT == BTECH_AUTOPILOT_NOT_INSTALLED_IN_UNIT) {
     mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
                  "Error: The autopilot isn't inside a 'mech!");
     return;
   }
-  if (auto_pilot_on(autopilot)) {
+  if (RESULT == BTECH_AUTOPILOT_ALREADY_ENGAGED) {
     mecha_notify(
         btech_context_evaluation(autopilot->xcode.context), player,
         "The autopilot's already online! You have to disengage it first.");
     return;
   }
-
-  if (mech_autopilot_dbref(mech) <= 0)
-    auto_init(autopilot, mech);
-  mech_autopilot_dbref_set(mech, autopilot->mynum);
-
-  if (mech_autopilot_dbref(mech) > 0)
-    auto_set_comtitle(autopilot, mech);
-
-  autopilot->mapindex = mech_map_dbref(mech);
+  if (RESULT == BTECH_AUTOPILOT_CONFLICT) {
+    mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
+                 "The autopilot or unit is already associated elsewhere.");
+    return;
+  }
+  if (RESULT != BTECH_AUTOPILOT_OK) {
+    mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
+                 "Internal error! - Bad AI object!");
+    return;
+  }
 
   mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
                "Engaging autopilot...");
-  autopilot_event_schedule(autopilot, EVENT_AUTOCOM, auto_com_event,
-                           AUTOPILOT_NC_DELAY, 0);
 }
 
 /*
@@ -466,14 +457,19 @@ void auto_disengage(DbRef player, void *data,
 
   Autopilot *autopilot = (Autopilot *)data;
 
-  if (!auto_pilot_on(autopilot)) {
+  const BtechAutopilotResult RESULT = autopilot_control_disengage(autopilot);
+  if (RESULT == BTECH_AUTOPILOT_ALREADY_DISENGAGED) {
     mecha_notify(
         btech_context_evaluation(autopilot->xcode.context), player,
         "The autopilot's already offline! You have to engage it first.");
     return;
   }
 
-  auto_stop_pilot(autopilot);
+  if (RESULT != BTECH_AUTOPILOT_OK) {
+    mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
+                 "Internal error! - Bad AI object!");
+    return;
+  }
   mecha_notify(btech_context_evaluation(autopilot->xcode.context), player,
                "Autopilot has been disengaged.");
 }
@@ -625,8 +621,9 @@ void auto_newautopilot(DbRef key, void **data,
 
     autopilot_weapon_profiles_initialize(autopilot);
 
-    /* And some things not set null */
-    autopilot->speed = 100;
+    auto_init(autopilot, nullptr);
+    autopilot->mymechnum = -1;
+    autopilot->mapindex = -1;
 
     break;
 
@@ -669,7 +666,7 @@ void auto_newautopilot(DbRef key, void **data,
 
 // XXX: put in a header file
 void auto_heartbeat(Autopilot *autopilot) {
-  if (!autopilot->mymech)
+  if (!autopilot->engaged || !autopilot->mymech)
     return;
   auto_sensor_event(autopilot);
   if (autopilot->weaplist == nullptr ||

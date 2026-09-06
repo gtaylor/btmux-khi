@@ -170,6 +170,8 @@ void lua_command_access_install_namespace(lua_State *state) {
   lua_setfield(state, -2, "__eq");
   lua_pushcfunction(state, lua_command_access_newindex);
   lua_setfield(state, -2, "__newindex");
+  lua_pushstring(state, "protected command access constant metatable");
+  lua_setfield(state, -2, "__metatable");
   lua_pop(state, 1);
 
   luaL_newmetatable(state, LUA_COMMAND_ACCESS_NAMESPACE_METATABLE);
@@ -177,6 +179,8 @@ void lua_command_access_install_namespace(lua_State *state) {
   lua_setfield(state, -2, "__index");
   lua_pushcfunction(state, lua_command_access_namespace_newindex);
   lua_setfield(state, -2, "__newindex");
+  lua_pushstring(state, "protected command access namespace metatable");
+  lua_setfield(state, -2, "__metatable");
   lua_pop(state, 1);
 
   (void)lua_newuserdata(state, 1);

@@ -204,12 +204,12 @@ static bool load_autopilot_data(const RedBlackTreeVisitCall *call) {
       auto_update_profile_event(AUTOPILOT);
 
       /*
-       * MUX event nodes are runtime-only. An autopilot that was engaged at
-       * checkpoint time is identified by the durable MECH->AUTO link and by
-       * the AUTO object being inside that MECH. Requeue its dispatcher from
-       * the durable command list; it recreates goal-specific events itself.
+       * MUX event nodes are runtime-only. Requeue an authoritatively engaged
+       * autopilot only when its durable association is still consistent; the
+       * dispatcher recreates goal-specific events from the durable queue.
        */
-      if (mech_autopilot_dbref(AUTOPILOT->mymech) == AUTOPILOT->mynum &&
+      if (AUTOPILOT->engaged &&
+          mech_autopilot_dbref(AUTOPILOT->mymech) == AUTOPILOT->mynum &&
           game_object_location(CONTEXT->database, AUTOPILOT->mynum) ==
               AUTOPILOT->mymechnum &&
           AUTOPILOT->commands &&
@@ -217,7 +217,7 @@ static bool load_autopilot_data(const RedBlackTreeVisitCall *call) {
           !mux_event_count_type_data(CONTEXT->events, EVENT_AUTOCOM, AUTOPILOT))
         autopilot_event_schedule(AUTOPILOT, EVENT_AUTOCOM, auto_com_event,
                                  AUTOPILOT_NC_DELAY, 0);
-      if (autopilot_is_gunning(AUTOPILOT))
+      if (AUTOPILOT->engaged && autopilot_is_gunning(AUTOPILOT))
         autopilot_gunning_start(AUTOPILOT);
     }
   }

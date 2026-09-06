@@ -542,6 +542,8 @@ static void lua_mux_install_constant_metatable(lua_State *state,
   lua_setfield(state, -2, "__eq");
   lua_pushcfunction(state, lua_mux_constant_newindex);
   lua_setfield(state, -2, "__newindex");
+  lua_pushstring(state, "protected flag or power constant metatable");
+  lua_setfield(state, -2, "__metatable");
   lua_pop(state, 1);
 }
 
@@ -552,6 +554,8 @@ static void lua_mux_install_namespace_metatable(lua_State *state,
   lua_setfield(state, -2, "__index");
   lua_pushcfunction(state, lua_mux_constant_namespace_newindex);
   lua_setfield(state, -2, "__newindex");
+  lua_pushstring(state, "protected flag or power namespace metatable");
+  lua_setfield(state, -2, "__metatable");
   lua_pop(state, 1);
 }
 

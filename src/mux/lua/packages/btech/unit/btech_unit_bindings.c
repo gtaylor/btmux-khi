@@ -3,7 +3,6 @@
 #include <limits.h>
 #include <lua.h>
 #include <stddef.h>
-#include <strings.h>
 
 #include "btech/combat/mech_damage_api.h"
 #include "btech/configuration.h"
@@ -24,8 +23,10 @@
 #include "equipment_types.h"
 #include "mux/lua/lua_error.h"
 #include "mux/lua/lua_error_codes.h"
+#include "mux/lua/packages/btech/btech_constants.h"
 #include "mux/lua/packages/btech/btech_package.h"
 #include "mux/lua/packages/btech/btech_package_internal.h"
+#include "mux/lua/packages/btech/unit/btech_unit_constants.h"
 #include "mux/objects/db.h"
 #include "mux/objects/flags.h"
 #include "mux/server/platform.h"
@@ -81,28 +82,12 @@ static Mech *require_mech(lua_State *state, LuaBtechPackage *package,
   return mech;
 }
 
-int lua_btech_optional_section(lua_State *state, Mech *mech, int argument) {
+int lua_btech_optional_section(lua_State *state, LuaBtechPackage *package,
+                               Mech *mech, int argument) {
   if (lua_isnoneornil(state, argument))
     return -1;
-  if (lua_type(state, argument) != LUA_TSTRING)
-    (void)lua_error_arg(state, argument, LUA_ERROR_CODE_ARG_INVALID,
-                        "section must be a string");
-  const char *wanted = lua_tostring(state, argument);
-  const UnitSectionCatalog CATALOG = {
-      .unit_type = mech_class(mech), .movement_type = mech_movement_type(mech)};
-  for (size_t index = 0; index < unit_section_name_count(&CATALOG); index++) {
-    const char *name = unit_section_name(&CATALOG, index);
-    const ArmorSectionAbbreviation ABBREVIATION = armor_section_abbreviation(
-        &(ArmorSectionReference){.unit_class = mech_class(mech),
-                                 .movement_type = mech_movement_type(mech),
-                                 .location = (int)index});
-    if (strcasecmp(wanted, name) == 0 ||
-        strcasecmp(wanted, ABBREVIATION.text) == 0)
-      return (int)index;
-  }
-  (void)lua_error_arg(state, argument, LUA_ERROR_CODE_ARG_INVALID,
-                      "unknown section");
-  return -1;
+  return lua_btech_section_require_at(package, state, argument, argument,
+                                      "section", mech);
 }
 
 static void push_armor_pair(lua_State *state, int current, int original,
@@ -115,7 +100,8 @@ static void push_armor_pair(lua_State *state, int current, int original,
   lua_setfield(state, -2, field);
 }
 
-void lua_btech_push_armor(lua_State *state, Mech *mech, int section) {
+void lua_btech_push_armor(lua_State *state, LuaBtechPackage *package,
+                          Mech *mech, int section) {
   const UnitSectionCatalog CATALOG = {
       .unit_type = mech_class(mech), .movement_type = mech_movement_type(mech)};
   int armor = 0;
@@ -137,7 +123,7 @@ void lua_btech_push_armor(lua_State *state, Mech *mech, int section) {
   }
   lua_newtable(state);
   if (section >= 0) {
-    lua_pushstring(state, unit_section_name(&CATALOG, (size_t)section));
+    lua_btech_section_push(state, package, mech, section);
     lua_setfield(state, -2, "section");
   }
   push_armor_pair(state, armor, original_armor, "armor");
@@ -147,7 +133,8 @@ void lua_btech_push_armor(lua_State *state, Mech *mech, int section) {
 
 static int lua_btech_unit_armor(lua_State *state, LuaBtechPackage *package) {
   Mech *mech = require_mech(state, package, 1);
-  lua_btech_push_armor(state, mech, lua_btech_optional_section(state, mech, 2));
+  lua_btech_push_armor(state, package, mech,
+                       lua_btech_optional_section(state, package, mech, 2));
   return 1;
 }
 
@@ -167,16 +154,15 @@ static const char *critical_kind(int part) {
   return "other";
 }
 
-void lua_btech_push_critical_slots(lua_State *state, BtechContext *context,
-                                   Mech *mech, int section) {
-  const UnitSectionCatalog CATALOG = {
-      .unit_type = mech_class(mech), .movement_type = mech_movement_type(mech)};
+void lua_btech_push_critical_slots(lua_State *state, LuaBtechPackage *package,
+                                   BtechContext *context, Mech *mech,
+                                   int section) {
   lua_newtable(state);
   for (int slot = 0; slot < NUM_CRITICALS; slot++) {
     const int PART = mech_critical_part_type(mech, section, slot);
     const int BRAND = mech_critical_brand(mech, section, slot);
     lua_newtable(state);
-    lua_pushstring(state, unit_section_name(&CATALOG, (size_t)section));
+    lua_btech_section_push(state, package, mech, section);
     lua_setfield(state, -2, "section");
     lua_pushinteger(state, slot + 1);
     lua_setfield(state, -2, "slot");
@@ -205,12 +191,12 @@ void lua_btech_push_critical_slots(lua_State *state, BtechContext *context,
       lua_setfield(state, -2, "ammunition");
     }
     lua_btech_push_critical_modes(
-        state, (unsigned int)mech_critical_fire_mode(mech, section, slot),
-        false);
+        state, package,
+        (unsigned int)mech_critical_fire_mode(mech, section, slot), false);
     lua_setfield(state, -2, "fire_modes");
     lua_btech_push_critical_modes(
-        state, (unsigned int)mech_critical_ammo_mode(mech, section, slot),
-        true);
+        state, package,
+        (unsigned int)mech_critical_ammo_mode(mech, section, slot), true);
     lua_setfield(state, -2, "ammunition_modes");
     lua_rawseti(state, -2, slot + 1);
   }
@@ -219,16 +205,17 @@ void lua_btech_push_critical_slots(lua_State *state, BtechContext *context,
 static int lua_btech_unit_critical_slots(lua_State *state,
                                          LuaBtechPackage *package) {
   Mech *mech = require_mech(state, package, 1);
-  const int SECTION = lua_btech_optional_section(state, mech, 2);
+  const int SECTION = lua_btech_optional_section(state, package, mech, 2);
   if (SECTION < 0)
     return lua_error_arg(state, 2, LUA_ERROR_CODE_ARG_INVALID,
                          "section is required");
-  lua_btech_push_critical_slots(state, lua_btech_context(package), mech,
-                                SECTION);
+  lua_btech_push_critical_slots(state, package, lua_btech_context(package),
+                                mech, SECTION);
   return 1;
 }
 
-void lua_btech_push_weapons(lua_State *state, BtechContext *context, Mech *mech,
+void lua_btech_push_weapons(lua_State *state, LuaBtechPackage *package,
+                            BtechContext *context, Mech *mech,
                             int selected_section) {
   const UnitSectionCatalog CATALOG = {
       .unit_type = mech_class(mech), .movement_type = mech_movement_type(mech)};
@@ -256,7 +243,7 @@ void lua_btech_push_weapons(lua_State *state, BtechContext *context, Mech *mech,
       lua_newtable(state);
       lua_pushinteger(state, game_number);
       lua_setfield(state, -2, "number");
-      lua_pushstring(state, unit_section_name(&CATALOG, (size_t)section));
+      lua_btech_section_push(state, package, mech, section);
       lua_setfield(state, -2, "section");
       lua_pushinteger(state, SLOT + 1);
       lua_setfield(state, -2, "first_slot");
@@ -284,8 +271,8 @@ void lua_btech_push_weapons(lua_State *state, BtechContext *context, Mech *mech,
 
 static int lua_btech_unit_weapons(lua_State *state, LuaBtechPackage *package) {
   Mech *mech = require_mech(state, package, 1);
-  lua_btech_push_weapons(state, lua_btech_context(package), mech,
-                         lua_btech_optional_section(state, mech, 2));
+  lua_btech_push_weapons(state, package, lua_btech_context(package), mech,
+                         lua_btech_optional_section(state, package, mech, 2));
   return 1;
 }
 
@@ -493,7 +480,10 @@ static int lua_btech_unit_installed_parts(lua_State *state,
   return 1;
 }
 
-static void push_technology_group(lua_State *state, const char *group,
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): Technology offset and
+// catalog count are distinct by construction at each call site.
+static void push_technology_group(lua_State *state, LuaBtechPackage *package,
+                                  const char *group, int technology_offset,
                                   size_t count, const char *(*name_at)(size_t),
                                   unsigned configured, unsigned inferred,
                                   int *output) {
@@ -504,7 +494,8 @@ static void push_technology_group(lua_State *state, const char *group,
       continue;
     const char *name = name_at(index);
     lua_newtable(state);
-    lua_pushstring(state, name);
+    lua_btech_constant_push(state, package, &BTECH_LUA_TECHNOLOGY,
+                            technology_offset + (int)index);
     lua_setfield(state, -2, "code");
     lua_pushstring(state, name);
     lua_setfield(state, -2, "name");
@@ -515,8 +506,10 @@ static void push_technology_group(lua_State *state, const char *group,
     lua_rawseti(state, -2, (*output)++);
   }
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
-void lua_btech_push_technologies(lua_State *state, Mech *mech) {
+void lua_btech_push_technologies(lua_State *state, LuaBtechPackage *package,
+                                 Mech *mech) {
   const unsigned PRIMARY = (unsigned)mech_technology_flags(mech);
   const unsigned SECONDARY = (unsigned)mech_technology_flags_secondary(mech);
   const unsigned INFANTRY = (unsigned)mech_infantry_technology_flags(mech);
@@ -524,24 +517,26 @@ void lua_btech_push_technologies(lua_State *state, Mech *mech) {
   update_specials(&inferred);
   int output = 1;
   lua_newtable(state);
-  push_technology_group(state, "primary", primary_technology_name_count(),
-                        primary_technology_name, PRIMARY,
-                        (unsigned)mech_technology_flags(&inferred) & ~PRIMARY,
-                        &output);
-  push_technology_group(state, "secondary", secondary_technology_name_count(),
-                        secondary_technology_name, SECONDARY,
-                        (unsigned)mech_technology_flags_secondary(&inferred) &
-                            ~SECONDARY,
-                        &output);
   push_technology_group(
-      state, "infantry", infantry_technology_name_count(),
-      infantry_technology_name, INFANTRY,
+      state, package, "primary", 0, primary_technology_name_count(),
+      primary_technology_name, PRIMARY,
+      (unsigned)mech_technology_flags(&inferred) & ~PRIMARY, &output);
+  push_technology_group(
+      state, package, "secondary", (int)primary_technology_name_count(),
+      secondary_technology_name_count(), secondary_technology_name, SECONDARY,
+      (unsigned)mech_technology_flags_secondary(&inferred) & ~SECONDARY,
+      &output);
+  push_technology_group(
+      state, package, "infantry",
+      (int)(primary_technology_name_count() +
+            secondary_technology_name_count()),
+      infantry_technology_name_count(), infantry_technology_name, INFANTRY,
       (unsigned)mech_infantry_technology_flags(&inferred) & ~INFANTRY, &output);
 }
 
 static int lua_btech_unit_technologies(lua_State *state,
                                        LuaBtechPackage *package) {
-  lua_btech_push_technologies(state, require_mech(state, package, 1));
+  lua_btech_push_technologies(state, package, require_mech(state, package, 1));
   return 1;
 }
 
@@ -722,4 +717,8 @@ void lua_btech_install_unit_bindings(lua_State *state,
       state, package, "unit", BTECH_UNIT_NATIVE_ENTRIES,
       sizeof(BTECH_UNIT_NATIVE_ENTRIES) / sizeof(BTECH_UNIT_NATIVE_ENTRIES[0]));
   lua_btech_install_unit_operation_bindings(state, package);
+  lua_btech_install_unit_admin_bindings(state, package);
+  lua_getfield(state, -1, "unit");
+  lua_btech_unit_constants_install(state, package);
+  lua_pop(state, 1);
 }

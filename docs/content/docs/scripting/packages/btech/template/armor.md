@@ -19,8 +19,9 @@ btech.template.armor( reference, section )
 `string reference`
 : The unit-template reference.
 
-`string|nil section`
-: An optional class-specific section name or abbreviation.
+`BtechSection|nil section`
+: An optional typed constant from [`btech.unit.sections`](../../unit/sections/)
+  that is valid for the template.
 
 ### Returns
 
@@ -32,6 +33,8 @@ btech.template.armor( reference, section )
 When `section` is omitted, the returned armor, internal-structure, and rear-
 armor values are totals across all sections, and the record has no `section`
 field.
+When present, the returned `section` is the same typed constant and can be used
+with live-unit section functions.
 
 ## See Also
 

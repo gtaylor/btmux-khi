@@ -10,8 +10,10 @@
 
 #include "autopilot.h"
 #include "autopilot_argument_list_api.h"
+#include "autopilot_control_api.h"
 #include "autopilot_radio_internal.h"
 #include "bsuit_api.h"
+#include "btech/autopilot.h"
 #include "btech_event.h"
 #include "map.h"
 #include "map_terrain.h"
@@ -45,6 +47,21 @@ void autopilot_radio_clear_commands(Autopilot *autopilot, char *buffer) {
   }
 }
 
+bool autopilot_radio_prepare_autogun(Autopilot *autopilot, char *message) {
+  const BtechAutopilotResult RESULT = autopilot_control_engage(autopilot);
+  if (RESULT == BTECH_AUTOPILOT_OK || RESULT == BTECH_AUTOPILOT_ALREADY_ENGAGED)
+    return true;
+  if (RESULT == BTECH_AUTOPILOT_NOT_INSTALLED_IN_UNIT)
+    (void)snprintf(message, LBUF_SIZE,
+                   "!Unable to engage autopilot: not installed in a unit");
+  else if (RESULT == BTECH_AUTOPILOT_CONFLICT)
+    (void)snprintf(message, LBUF_SIZE,
+                   "!Unable to engage autopilot: association conflict");
+  else
+    (void)snprintf(message, LBUF_SIZE, "!Unable to engage autopilot");
+  return false;
+}
+
 void auto_radio_command_autogun(Autopilot *autopilot,
                                 Mech *mech [[maybe_unused]],
                                 AutopilotArgumentList *args, int argc,
@@ -53,6 +70,9 @@ void auto_radio_command_autogun(Autopilot *autopilot,
   int threshold;
 
   if (strcmp(autopilot_argument_list_get(args, 1), "on") == 0) {
+
+    if (!autopilot_radio_prepare_autogun(autopilot, mesg))
+      return;
 
     autopilot->target = -1;
     autopilot->target_score = 0;

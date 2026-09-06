@@ -5,6 +5,7 @@
  * @code{.lua}
  * ---The native BattleTech host API. All functions are unavailable during `@lua/check`.
  * ---@class BtechPackage
+ * ---@field autopilot BtechAutopilotPackage
  * ---@field character BtechCharacterPackage
  * ---@field map BtechMapPackage
  * ---@field parts BtechPartsPackage
@@ -15,6 +16,15 @@
  * ---@field unit BtechUnitPackage
  * ---@field error BtechErrorPackage
  * btech = {}
+ * @endcode
+ * @par LuaLS definition btech namespace btech.autopilot
+ * @code{.lua}
+ * ---@class BtechAutopilotPackage
+ * ---@field orders BtechAutopilotOrderNamespace
+ * ---@field directions BtechAutopilotDirectionNamespace
+ * ---@field roam_modes BtechAutopilotRoamModeNamespace
+ * ---@field autogun_modes BtechAutopilotAutogunModeNamespace
+ * local btech_autopilot = {}
  * @endcode
  * @par LuaLS definition btech namespace btech.character
  * @code{.lua}
@@ -39,6 +49,7 @@
  * @par LuaLS definition btech namespace btech.repair
  * @code{.lua}
  * ---@class BtechRepairPackage
+ * ---@field operations BtechRepairOperationNamespace
  * local btech_repair = {}
  * @endcode
  * @par LuaLS definition btech namespace btech.system
@@ -54,10 +65,18 @@
  * @par LuaLS definition btech namespace btech.unit
  * @code{.lua}
  * ---@class BtechUnitPackage
+ * ---@field types BtechUnitTypeNamespace
+ * ---@field movement_types BtechMovementTypeNamespace
+ * ---@field sections BtechSectionNamespace
+ * ---@field technology BtechTechnologyCodeNamespace
+ * ---@field technology_groups BtechTechnologyGroupNamespace
+ * ---@field fire_modes BtechFireModeNamespace
+ * ---@field ammunition_modes BtechAmmunitionModeNamespace
  * local btech_unit = {}
  * @endcode
  * @par LuaLS definition btech binding btech.packages
  * @code{.lua}
+ * btech.autopilot = btech_autopilot
  * btech.character = btech_character
  * btech.map = btech_map
  * btech.parts = btech_parts
@@ -80,9 +99,24 @@
  * @code{.lua}
  * ---@alias BtechLineOfSight "none"|"blocked"|"clear"
  * @endcode
- * @par LuaLS definition btech alias btech.repair-operation
+ * @par LuaLS definition btech type btech.constant-values
  * @code{.lua}
- * ---@alias BtechRepairOperation "reattach"|"repair_part"|"repair_weapon_temporary"|"repair_enhancement"|"repair_focus"|"repair_crystal"|"repair_barrel"|"repair_ammo_feed"|"repair_ranging"|"repair_ammo_mount"|"replace_weapon"|"reload"|"repair_armor"|"repair_rear_armor"|"repair_internal"|"detach"|"scrap_part"|"scrap_weapon"|"unload"|"reseal"|"replace_suit"
+ * ---Typed repair operation from [`btech.repair.operations`](lua://btech.repair.operations).
+ * ---@class BtechRepairOperation
+ * ---Typed unit class from [`btech.unit.types`](lua://btech.unit.types).
+ * ---@class BtechUnitType
+ * ---Typed movement class from [`btech.unit.movement_types`](lua://btech.unit.movement_types).
+ * ---@class BtechMovementType
+ * ---Typed unit-layout section from [`btech.unit.sections`](lua://btech.unit.sections).
+ * ---@class BtechSection
+ * ---Typed technology code from [`btech.unit.technology`](lua://btech.unit.technology).
+ * ---@class BtechTechnologyCode
+ * ---Typed technology group from [`btech.unit.technology_groups`](lua://btech.unit.technology_groups).
+ * ---@class BtechTechnologyGroup
+ * ---Typed weapon fire mode from [`btech.unit.fire_modes`](lua://btech.unit.fire_modes).
+ * ---@class BtechFireMode
+ * ---Typed ammunition mode from [`btech.unit.ammunition_modes`](lua://btech.unit.ammunition_modes).
+ * ---@class BtechAmmunitionMode
  * @endcode
  * @par LuaLS definition btech type btech.map-records
  * @code{.lua}
@@ -155,7 +189,7 @@
  * ---@field current integer
  * ---@field original integer
  * ---@class BtechArmorStatus
- * ---@field section? string
+ * ---@field section? BtechSection
  * ---@field armor BtechValuePair
  * ---@field internal BtechValuePair
  * ---@field rear_armor BtechValuePair
@@ -163,7 +197,7 @@
  * ---@field rounds integer
  * ---@field capacity integer
  * ---@class BtechCriticalSlot
- * ---@field section string
+ * ---@field section BtechSection
  * ---@field slot integer
  * ---@field kind string
  * ---@field part? BtechPart
@@ -171,11 +205,11 @@
  * ---@field temporary_failure boolean
  * ---@field auxiliary_data integer
  * ---@field ammunition? BtechAmmunitionStatus
- * ---@field fire_modes string[]
- * ---@field ammunition_modes string[]
+ * ---@field fire_modes BtechFireMode[]
+ * ---@field ammunition_modes BtechAmmunitionMode[]
  * ---@class BtechMountedWeapon
  * ---@field number integer
- * ---@field section string
+ * ---@field section BtechSection
  * ---@field first_slot integer
  * ---@field part BtechPart
  * ---@field slot_count integer
@@ -195,13 +229,13 @@
  * ---@field offensive number
  * ---@field defensive number
  * ---@class BtechTechnology
- * ---@field code string
+ * ---@field code BtechTechnologyCode
  * ---@field name string
- * ---@field group string
+ * ---@field group "primary"|"secondary"|"infantry"
  * ---@field source "configured"|"inferred"
  * ---@class BtechRepairNeed
  * ---@field operation BtechRepairOperation
- * ---@field section string
+ * ---@field section BtechSection
  * ---@field slot? integer
  * ---@field amount? integer
  * ---@field in_progress boolean
@@ -443,7 +477,7 @@
  * @par LuaLS definition btech callable btech.template.armor
  * @code{.lua}
  * ---@param reference string
- * ---@param section? string
+ * ---@param section? BtechSection
  * ---@return BtechArmorStatus status
  * function btech_template.armor(reference, section) end
  * @endcode
@@ -456,7 +490,7 @@
  * @par LuaLS definition btech callable btech.template.critical_slots
  * @code{.lua}
  * ---@param reference string
- * ---@param section string
+ * ---@param section BtechSection
  * ---@return BtechCriticalSlot[] slots
  * function btech_template.critical_slots(reference, section) end
  * @endcode
@@ -469,7 +503,7 @@
  * @par LuaLS definition btech callable btech.template.weapons
  * @code{.lua}
  * ---@param reference string
- * ---@param section? string
+ * ---@param section? BtechSection
  * ---@return BtechMountedWeapon[] weapons
  * function btech_template.weapons(reference, section) end
  * @endcode
@@ -513,14 +547,14 @@
  * @code{.lua}
  * ---@param reference string
  * ---@param player DbRef|Object
- * ---@param section string
+ * ---@param section BtechSection
  * function btech_template.show_critical_status(reference, player, section) end
  * @endcode
  *
  * @par LuaLS definition btech callable btech.unit.armor
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@param section? string
+ * ---@param section? BtechSection
  * ---@return BtechArmorStatus status
  * function btech_unit.armor(unit, section) end
  * @endcode
@@ -533,7 +567,7 @@
  * @par LuaLS definition btech callable btech.unit.critical_slots
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@param section string
+ * ---@param section BtechSection
  * ---@return BtechCriticalSlot[] slots
  * function btech_unit.critical_slots(unit, section) end
  * @endcode
@@ -546,7 +580,7 @@
  * @par LuaLS definition btech callable btech.unit.weapons
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@param section? string
+ * ---@param section? BtechSection
  * ---@return BtechMountedWeapon[] weapons
  * function btech_unit.weapons(unit, section) end
  * @endcode
@@ -596,20 +630,26 @@
  * @par LuaLS definition btech callable btech.unit.effective_max_speed
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@return number speed
+ * ---@return number movement_points
  * function btech_unit.effective_max_speed(unit) end
+ * @endcode
+ * @par LuaLS definition btech callable btech.unit.effective_max_speed_kph
+ * @code{.lua}
+ * ---@param unit DbRef|Object
+ * ---@return number kilometers_per_hour
+ * function btech_unit.effective_max_speed_kph(unit) end
  * @endcode
  * @par LuaLS definition btech callable btech.unit.section_condition
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@param section string
+ * ---@param section BtechSection
  * ---@return "operational"|"destroyed"|"flooded" condition
  * function btech_unit.section_condition(unit, section) end
  * @endcode
  * @par LuaLS definition btech callable btech.unit.set_armor
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@param section string
+ * ---@param section BtechSection
  * ---@param patch table
  * function btech_unit.set_armor(unit, section, patch) end
  * @endcode
@@ -628,8 +668,8 @@
  * @par LuaLS definition btech callable btech.unit.set_max_speed
  * @code{.lua}
  * ---@param unit DbRef|Object
- * ---@param speed number
- * function btech_unit.set_max_speed(unit, speed) end
+ * ---@param movement_points number
+ * function btech_unit.set_max_speed(unit, movement_points) end
  * @endcode
  * @par LuaLS definition btech callable btech.unit.set_tonnage
  * @code{.lua}

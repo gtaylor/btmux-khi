@@ -19,13 +19,15 @@ btech.template.weapons( reference, section )
 `string reference`
 : The unit-template reference.
 
-`string|nil section`
-: An optional class-specific section name or abbreviation.
+`BtechSection|nil section`
+: An optional typed constant from [`btech.unit.sections`](../../unit/sections/)
+  that is valid for the template.
 
 ### Returns
 
 `BtechMountedWeapon[] weapons`
-: The mounted weapons.
+: The mounted weapons. Each `section` field is a typed `BtechSection` constant
+  and can be reused with live-unit functions.
 
 ## See Also
 

@@ -130,6 +130,54 @@ target_include_directories(autopilot_order_queue_test PRIVATE
   ${AUTOPILOT_TEST_INCLUDE_DIRECTORIES})
 add_test(NAME autopilot_order_queue COMMAND autopilot_order_queue_test)
 
+add_executable(autopilot_control_test
+  ${CMAKE_SOURCE_DIR}/tests/unit/btech/autopilot/autopilot_control.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_argument_list.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_control.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_order_queue.c
+  ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/doubly_linked_list.c
+  ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c)
+target_compile_options(autopilot_control_test PRIVATE -ffunction-sections)
+target_link_options(autopilot_control_test PRIVATE -Wl,--gc-sections)
+target_link_libraries(autopilot_control_test PRIVATE btmux_options)
+target_include_directories(autopilot_control_test PRIVATE
+  ${AUTOPILOT_TEST_INCLUDE_DIRECTORIES})
+add_test(NAME autopilot_control COMMAND autopilot_control_test)
+
+add_executable(autopilot_legacy_control_test
+  ${CMAKE_SOURCE_DIR}/tests/unit/btech/autopilot/autopilot_legacy_control.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_argument_list.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_core.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_radio.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_radio_handlers.c
+  ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/doubly_linked_list.c
+  ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c)
+target_compile_options(autopilot_legacy_control_test PRIVATE -ffunction-sections)
+target_link_options(autopilot_legacy_control_test PRIVATE -Wl,--gc-sections)
+target_link_libraries(autopilot_legacy_control_test PRIVATE btmux_options)
+target_include_directories(autopilot_legacy_control_test PRIVATE
+  ${AUTOPILOT_TEST_INCLUDE_DIRECTORIES})
+add_test(NAME autopilot_legacy_control COMMAND autopilot_legacy_control_test)
+
+add_executable(autopilot_order_codec_test
+  ${CMAKE_SOURCE_DIR}/tests/unit/btech/autopilot/autopilot_order_codec.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_argument_list.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_order_codec.c)
+target_link_libraries(autopilot_order_codec_test PRIVATE btmux_options)
+target_include_directories(autopilot_order_codec_test PRIVATE
+  ${AUTOPILOT_TEST_INCLUDE_DIRECTORIES})
+add_test(NAME autopilot_order_codec COMMAND autopilot_order_codec_test)
+
+add_executable(autopilot_status_test
+  ${CMAKE_SOURCE_DIR}/tests/unit/btech/autopilot/autopilot_status.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_control.c)
+target_compile_options(autopilot_status_test PRIVATE -ffunction-sections)
+target_link_options(autopilot_status_test PRIVATE -Wl,--gc-sections)
+target_link_libraries(autopilot_status_test PRIVATE btmux_options)
+target_include_directories(autopilot_status_test PRIVATE
+  ${AUTOPILOT_TEST_INCLUDE_DIRECTORIES})
+add_test(NAME autopilot_status COMMAND autopilot_status_test)
+
 add_executable(autopilot_movement_policy_test
   ${CMAKE_SOURCE_DIR}/tests/unit/btech/autopilot/autopilot_movement_policy.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/autopilot/autopilot_movement_policy.c)
@@ -643,6 +691,8 @@ set_tests_properties(btech_repair_timing PROPERTIES
 add_executable(btech_mechrep_admin_test
   ${CMAKE_SOURCE_DIR}/tests/unit/btech/systems/btech_mechrep_admin.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_construction.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_metadata.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_operations.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_technology.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/stringutil.c)
@@ -655,6 +705,44 @@ target_include_directories(btech_mechrep_admin_test PRIVATE
   "${CMAKE_SOURCE_DIR}/src")
 add_test(NAME btech_mechrep_admin COMMAND btech_mechrep_admin_test)
 set_tests_properties(btech_mechrep_admin PROPERTIES
+  LABELS "unit;btech-systems;btech")
+
+add_executable(btech_weapon_install_metadata_test
+  ${CMAKE_SOURCE_DIR}/tests/unit/btech/systems/btech_weapon_install_metadata.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_metadata.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_operations.c
+  ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c)
+target_compile_options(btech_weapon_install_metadata_test PRIVATE
+  -ffunction-sections)
+target_link_options(btech_weapon_install_metadata_test PRIVATE
+  -Wl,--gc-sections)
+target_link_libraries(btech_weapon_install_metadata_test PRIVATE btmux_options)
+target_include_directories(btech_weapon_install_metadata_test PRIVATE
+  "${CMAKE_BINARY_DIR}"
+  ${BTECH_PRIVATE_INCLUDE_DIRS}
+  "${CMAKE_SOURCE_DIR}/src")
+add_test(NAME btech_weapon_install_metadata
+  COMMAND btech_weapon_install_metadata_test)
+set_tests_properties(btech_weapon_install_metadata PROPERTIES
+  LABELS "unit;btech-systems;btech")
+
+add_executable(btech_mechrep_reload_test
+  ${CMAKE_SOURCE_DIR}/tests/unit/btech/systems/btech_mechrep_reload.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_construction.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_metadata.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_operations.c
+  ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c
+  ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/stringutil.c)
+target_compile_options(btech_mechrep_reload_test PRIVATE -ffunction-sections)
+target_link_options(btech_mechrep_reload_test PRIVATE -Wl,--gc-sections)
+target_link_libraries(btech_mechrep_reload_test PRIVATE btmux_options)
+target_include_directories(btech_mechrep_reload_test PRIVATE
+  "${CMAKE_BINARY_DIR}"
+  ${BTECH_PRIVATE_INCLUDE_DIRS}
+  "${CMAKE_SOURCE_DIR}/src")
+add_test(NAME btech_mechrep_reload COMMAND btech_mechrep_reload_test)
+set_tests_properties(btech_mechrep_reload PROPERTIES
   LABELS "unit;btech-systems;btech")
 
 add_executable(btech_mech_admin_command_test
@@ -675,6 +763,8 @@ set_tests_properties(btech_mech_admin_command PROPERTIES
 add_executable(btech_mechrep_armor_setter_test
   ${CMAKE_SOURCE_DIR}/tests/unit/btech/systems/btech_mechrep_armor_setter.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_construction.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_metadata.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_operations.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/stringutil.c)
 target_compile_options(btech_mechrep_armor_setter_test PRIVATE
@@ -694,6 +784,8 @@ set_tests_properties(btech_mechrep_armor_setter PROPERTIES
 add_executable(btech_mechrep_repair_command_test
   ${CMAKE_SOURCE_DIR}/tests/unit/btech/systems/btech_mechrep_repair_command.c
   ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_construction.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_metadata.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/repair/mechrep_operations.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/checked_storage.c
   ${CMAKE_SOURCE_DIR}/${MUX_SOURCE_DIR}/support/stringutil.c)
 target_compile_options(btech_mechrep_repair_command_test PRIVATE
@@ -1284,6 +1376,50 @@ add_test(NAME repair_tcp_integration
   COMMAND bash "${BTECH_INTEGRATION_RUNNER}" repair-tcp
     "${BTECH_GAME_FIXTURE}" - $<TARGET_FILE:repair_tcp_integration_test>
     $<TARGET_FILE:stompymux>)
+
+add_executable(autopilot_lua_integration_test
+  ${CMAKE_SOURCE_DIR}/tests/integration/autopilot_lua_integration.c)
+target_link_libraries(autopilot_lua_integration_test PRIVATE btmux_options)
+target_include_directories(autopilot_lua_integration_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src")
+set(AUTOPILOT_LUA_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/autopilot_lua_fixture")
+file(REMOVE_RECURSE "${AUTOPILOT_LUA_FIXTURE}")
+file(MAKE_DIRECTORY "${AUTOPILOT_LUA_FIXTURE}")
+file(COPY "${BTECH_INTEGRATION_FIXTURES}/autopilot_lua/lua"
+  DESTINATION "${AUTOPILOT_LUA_FIXTURE}")
+add_test(NAME autopilot_lua_integration
+  COMMAND bash "${BTECH_INTEGRATION_RUNNER}" autopilot-lua
+    "${BTECH_GAME_FIXTURE}"
+    "${AUTOPILOT_LUA_FIXTURE}"
+    $<TARGET_FILE:autopilot_lua_integration_test> $<TARGET_FILE:stompymux>)
+set_tests_properties(autopilot_lua_integration PROPERTIES
+  LABELS "integration;btech-autopilot;lua")
+
+add_test(NAME btech_persistence_v8_migration
+  COMMAND bash
+    "${CMAKE_SOURCE_DIR}/tests/integration/btech_persistence_v8_migration.sh"
+    "${CMAKE_SOURCE_DIR}/game/data/migrations/btech-persistence-v8.sql")
+set_tests_properties(btech_persistence_v8_migration PROPERTIES
+  LABELS "integration;btech-persistence;migration"
+  SKIP_RETURN_CODE 77)
+
+add_executable(autopilot_legacy_persistence_test
+  ${CMAKE_SOURCE_DIR}/tests/unit/btech/autopilot/autopilot_legacy_persistence.c
+  ${CMAKE_SOURCE_DIR}/${BTECH_SOURCE_DIR}/persistence/special_restore.c)
+target_compile_options(autopilot_legacy_persistence_test PRIVATE
+  -ffunction-sections)
+target_link_options(autopilot_legacy_persistence_test PRIVATE
+  -Wl,--gc-sections)
+target_link_libraries(autopilot_legacy_persistence_test
+  PRIVATE btmux_options SQLite3::SQLite3)
+target_include_directories(autopilot_legacy_persistence_test PRIVATE
+  "${CMAKE_BINARY_DIR}"
+  ${BTECH_PRIVATE_INCLUDE_DIRS}
+  "${CMAKE_SOURCE_DIR}/src")
+add_test(NAME autopilot_legacy_persistence
+  COMMAND autopilot_legacy_persistence_test)
+set_tests_properties(autopilot_legacy_persistence PROPERTIES
+  LABELS "unit;btech-autopilot;btech-persistence")
 
 add_executable(mux_header_interfaces_test ${CMAKE_SOURCE_DIR}/tests/unit/mux/support/mux_header_interfaces.c)
 target_link_libraries(mux_header_interfaces_test PRIVATE btmux_options libsodium)

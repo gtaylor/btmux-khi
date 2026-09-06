@@ -301,6 +301,9 @@ void auto_radio_command_target(Autopilot *autopilot, Mech *mech,
 
   if (!strcmp(autopilot_argument_list_get(args, 1), "-")) {
 
+    if (!autopilot_radio_prepare_autogun(autopilot, mesg))
+      return;
+
     /* Basicly doing the same as 'autogun on' */
     autopilot->target = -1;
     autopilot->target_score = 0;
@@ -324,6 +327,9 @@ void auto_radio_command_target(Autopilot *autopilot, Mech *mech,
     (void)snprintf(mesg, LBUF_SIZE, "!Unable to see such a target");
     return;
   }
+
+  if (!autopilot_radio_prepare_autogun(autopilot, mesg))
+    return;
 
   autopilot->target = targetref;
   autopilot->target_score = 0;

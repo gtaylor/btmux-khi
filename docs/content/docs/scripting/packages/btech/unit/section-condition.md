@@ -19,8 +19,9 @@ btech.unit.section_condition( unit, section )
 `DbRef|Object unit`
 : The live unit.
 
-`string section`
-: A class-specific section name or abbreviation.
+`BtechSection section`
+: A typed constant from [`btech.unit.sections`](../sections/) that is valid for
+  the unit.
 
 ### Returns
 

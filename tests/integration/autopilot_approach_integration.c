@@ -328,6 +328,12 @@ int main(int argc, char *argv[]) {
   }
 
   Autopilot autopilot = {};
+  if (autopilot_command_dispatch_enabled(nullptr) ||
+      autopilot_command_dispatch_enabled(&autopilot))
+    return 4;
+  autopilot.engaged = true;
+  if (!autopilot_command_dispatch_enabled(&autopilot))
+    return 5;
   const int CRUISE = test_cruise_uses_real_terrain(&autopilot);
   if (CRUISE)
     return 10 + CRUISE;

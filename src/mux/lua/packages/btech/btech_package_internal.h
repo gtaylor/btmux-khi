@@ -56,24 +56,30 @@ bool lua_btech_check_part(lua_State *state, BtechContext *context, int index,
                           int argument, PartReference *part);
 void lua_btech_push_part(lua_State *state, BtechContext *context,
                          PartReference part);
-void lua_btech_push_critical_modes(lua_State *state, unsigned int modes,
-                                   bool ammunition);
+void lua_btech_push_critical_modes(lua_State *state, LuaBtechPackage *package,
+                                   unsigned int modes, bool ammunition);
 void lua_btech_push_payload(lua_State *state, BtechContext *context,
                             Mech *mech);
 void lua_btech_push_installed_parts(lua_State *state, BtechContext *context,
                                     Mech *mech);
-void lua_btech_push_armor(lua_State *state, Mech *mech, int section);
-int lua_btech_optional_section(lua_State *state, Mech *mech, int argument);
-void lua_btech_push_critical_slots(lua_State *state, BtechContext *context,
-                                   Mech *mech, int section);
-void lua_btech_push_weapons(lua_State *state, BtechContext *context, Mech *mech,
-                            int section);
-void lua_btech_push_technologies(lua_State *state, Mech *mech);
+void lua_btech_push_armor(lua_State *state, LuaBtechPackage *package,
+                          Mech *mech, int section);
+int lua_btech_optional_section(lua_State *state, LuaBtechPackage *package,
+                               Mech *mech, int argument);
+void lua_btech_push_critical_slots(lua_State *state, LuaBtechPackage *package,
+                                   BtechContext *context, Mech *mech,
+                                   int section);
+void lua_btech_push_weapons(lua_State *state, LuaBtechPackage *package,
+                            BtechContext *context, Mech *mech, int section);
+void lua_btech_push_technologies(lua_State *state, LuaBtechPackage *package,
+                                 Mech *mech);
 void lua_btech_push_battle_value(lua_State *state, Mech *mech);
 void lua_btech_install_unit_bindings(lua_State *state,
                                      LuaBtechPackage *package);
 void lua_btech_install_unit_operation_bindings(lua_State *state,
                                                LuaBtechPackage *package);
+void lua_btech_install_unit_admin_bindings(lua_State *state,
+                                           LuaBtechPackage *package);
 void lua_btech_install_map_bindings(lua_State *state, LuaBtechPackage *package);
 void lua_btech_install_map_los_bindings(lua_State *state,
                                         LuaBtechPackage *package);
@@ -89,3 +95,5 @@ void lua_btech_install_system_bindings(lua_State *state,
                                        LuaBtechPackage *package);
 void lua_btech_install_template_bindings(lua_State *state,
                                          LuaBtechPackage *package);
+void lua_btech_install_autopilot_bindings(lua_State *state,
+                                          LuaBtechPackage *package);

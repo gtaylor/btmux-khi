@@ -18,13 +18,15 @@ relationships are `nil`, and object collections are dense arrays.
 The package follows Mux conventions: required arguments are validated, some
 functions ignore surplus positional arguments while others require exact arity,
 options tables reject unknown fields, and mutation-only functions return no Lua
-values. Failures raise structured errors. Section names and generated
-abbreviations are matched case-insensitively.
+values. Failures raise structured errors. APIs with closed vocabularies use
+immutable typed constants from their documented namespaces rather than magic
+strings.
 
 ## Subpackages
 
 | Package | Description |
 | --- | --- |
+| [`btech.autopilot`](autopilot/) | Typed autopilot status, orders, and engagement. |
 | [`btech.error`](error/) | Checked BattleTech error-code symbols. |
 | [`btech.character`](character/) | Character values, skills, and experience. |
 | [`btech.map`](map/) | Maps, geometry, line of sight, placement, and messaging. |

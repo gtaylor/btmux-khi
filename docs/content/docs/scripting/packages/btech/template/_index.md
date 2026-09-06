@@ -13,6 +13,8 @@ Template references must be non-empty and cannot contain `..`, `/`, or `\`;
 invalid references raise `mux.arg.invalid`. Except for [`exists`](exists/),
 template queries raise `btech.template.not_found` when the reference is missing
 and `btech.template.invalid` when the referenced template is malformed.
+Section arguments and returned section fields use typed constants from
+[`btech.unit.sections`](../unit/sections/).
 
 ## Functions
 

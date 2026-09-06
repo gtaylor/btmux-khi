@@ -167,6 +167,8 @@ void lua_mux_install_lock_bindings(lua_State *state, LuaMuxPackage *package) {
   lua_setfield(state, -2, "__eq");
   lua_pushcfunction(state, lua_mux_lock_immutable);
   lua_setfield(state, -2, "__newindex");
+  lua_pushstring(state, "protected lock constant metatable");
+  lua_setfield(state, -2, "__metatable");
   lua_pop(state, 1);
 
   luaL_newmetatable(state, LUA_MUX_LOCK_NAMESPACE_METATABLE);
@@ -174,6 +176,8 @@ void lua_mux_install_lock_bindings(lua_State *state, LuaMuxPackage *package) {
   lua_setfield(state, -2, "__index");
   lua_pushcfunction(state, lua_mux_lock_immutable);
   lua_setfield(state, -2, "__newindex");
+  lua_pushstring(state, "protected lock namespace metatable");
+  lua_setfield(state, -2, "__metatable");
   lua_pop(state, 1);
 
   LuaMuxLockNamespace *name_space = lua_newuserdata(state, sizeof(*name_space));

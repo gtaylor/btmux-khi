@@ -1,5 +1,7 @@
 set(BTECH_SOURCES
   autopilot/autopilot_argument_list.c
+  autopilot/autopilot_order_codec.c
+  autopilot/autopilot_control.c
   autopilot/autopilot_order_queue.c
   autopilot/autopilot_path_policy.c
   autopilot/autopilot_combat_policy.c
@@ -211,6 +213,8 @@ set(BTECH_SOURCES
   repair/repair_job.c
   repair/repair_event_payload.c
   repair/mechrep.c
+  repair/mechrep_metadata.c
+  repair/mechrep_operations.c
   repair/mechrep_templates.c
   repair/mechrep_construction.c
   repair/mechrep_technology.c

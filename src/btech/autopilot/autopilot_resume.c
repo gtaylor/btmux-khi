@@ -9,6 +9,8 @@
 #include "registry_api.h"
 
 void autopilot_resume(Autopilot *autopilot) {
+  if (!autopilot->engaged)
+    return;
   autopilot_gunning_resume(autopilot);
   if (autopilot->flags & AUTOPILOT_PILZOMBIE) {
     autopilot->flags &= (unsigned short)~AUTOPILOT_PILZOMBIE;

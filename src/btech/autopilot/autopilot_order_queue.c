@@ -7,8 +7,12 @@
 
 #include "autopilot.h"
 #include "autopilot_argument_list_api.h"
+#include "btech/autopilot.h"
 #include "mux/support/checked_storage.h"
 #include "mux/support/doubly_linked_list.h"
+
+static_assert(BTECH_AUTOPILOT_ORDER_CAPACITY == AUTOPILOT_MEMORY,
+              "public and execution queue capacities must match");
 
 bool autopilot_order_is_supported(int command_enum) {
   switch (command_enum) {

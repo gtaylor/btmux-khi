@@ -35,6 +35,8 @@ static int repaired_section;
 static int repaired_critical;
 static int reattached_sections;
 static int reattached_section;
+static UnitClass unit_class;
+static char notification[128];
 
 static void reset_state(void) {
   command_status = REPAIR_COMMAND_READY;
@@ -47,6 +49,8 @@ static void reset_state(void) {
   repaired_critical = -1;
   reattached_sections = 0;
   reattached_section = -1;
+  unit_class = CLASS_MECH;
+  notification[0] = '\0';
 }
 
 RepairCommandStatus
@@ -73,7 +77,7 @@ BtechContext *mech_context(const Mech *mech [[maybe_unused]]) {
   return CONTEXT;
 }
 
-UnitClass mech_class(const Mech *mech [[maybe_unused]]) { return CLASS_MECH; }
+UnitClass mech_class(const Mech *mech [[maybe_unused]]) { return unit_class; }
 
 MechMovementType mech_movement_type(const Mech *mech [[maybe_unused]]) {
   return MOVE_BIPED;
@@ -97,6 +101,12 @@ int armor_section_from_string(UnitClass type [[maybe_unused]],
     return HEAD;
   if (strcmp(string, "CTORSO") == 0)
     return CTORSO;
+  if (strcmp(string, "FS") == 0)
+    return FSIDE;
+  if (strcmp(string, "AS") == 0)
+    return BSIDE;
+  if (strcmp(string, "T") == 0)
+    return TURRET;
   return -1;
 }
 
@@ -136,8 +146,9 @@ void mech_re_attach(Mech *mech [[maybe_unused]], int loc) {
 }
 
 void mecha_notify(EvaluationContext *evaluation [[maybe_unused]],
-                  DbRef player [[maybe_unused]],
-                  const char *msg [[maybe_unused]]) {}
+                  DbRef player [[maybe_unused]], const char *msg) {
+  assert(snprintf(notification, sizeof(notification), "%s", msg) >= 0);
+}
 
 void notify_printf(EvaluationContext *evaluation [[maybe_unused]],
                    DbRef player [[maybe_unused]],
@@ -226,6 +237,30 @@ static void test_critical_positions_use_the_section_limit(void) {
   }
 }
 
+static void test_rear_repairs_require_mech_torsos(void) {
+  static const char *const VEHICLE_ALIAS_COMMANDS[] = {"FS R 12", "AS R 12",
+                                                       "T R 12"};
+  for (size_t index = 0;
+       index < sizeof(VEHICLE_ALIAS_COMMANDS) / sizeof(*VEHICLE_ALIAS_COMMANDS);
+       index++) {
+    reset_state();
+    unit_class = CLASS_VEH_GROUND;
+    invoke(VEHICLE_ALIAS_COMMANDS[index]);
+    assert_unchanged();
+    assert(
+        strcmp(notification,
+               "Only Mech center, left, and right torsos have rear armor!") ==
+        0);
+  }
+
+  reset_state();
+  invoke("CTORSO R 12");
+  assert(rear_armor == 12);
+  assert(armor == 10);
+  assert(internal == 20);
+  assert(strcmp(notification, "Rear armor repaired!") == 0);
+}
+
 static void test_section_reattach_has_exact_arguments(void) {
   reset_state();
   invoke("HEAD S");
@@ -258,6 +293,7 @@ static void test_rejected_contexts_never_mutate(void) {
 int main(void) {
   test_value_repairs_are_strict_and_bounded();
   test_critical_positions_use_the_section_limit();
+  test_rear_repairs_require_mech_torsos();
   test_section_reattach_has_exact_arguments();
   test_rejected_contexts_never_mutate();
   return 0;
